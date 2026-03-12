@@ -1,0 +1,9 @@
+step=0 benchmark=working_set array_size_bytes=524284 array_size_human=524284B iterations=3 total_accesses=393213 exec_time_ms=18.08 trace_file=/home/junon/RowScope/traces/working_set_524284B_iter3.trace
+step=1 benchmark=working_set array_size_bytes=1048576 array_size_human=1MB iterations=3 total_accesses=786432 exec_time_ms=36.24 trace_file=/home/junon/RowScope/traces/working_set_1MB_iter3.trace
+step=2 benchmark=working_set array_size_bytes=2097152 array_size_human=2MB iterations=3 total_accesses=1572864 exec_time_ms=74.58 trace_file=/home/junon/RowScope/traces/working_set_2MB_iter3.trace
+step=3 benchmark=working_set array_size_bytes=4194304 array_size_human=4MB iterations=3 total_accesses=3145728 exec_time_ms=146.73 trace_file=/home/junon/RowScope/traces/working_set_4MB_iter3.trace
+step=4 benchmark=working_set array_size_bytes=8388608 array_size_human=8MB iterations=3 total_accesses=6291456 exec_time_ms=293.49 trace_file=/home/junon/RowScope/traces/working_set_8MB_iter3.trace
+step=5 benchmark=working_set array_size_bytes=16777216 array_size_human=16MB iterations=3 total_accesses=12582912 exec_time_ms=585.08 trace_file=/home/junon/RowScope/traces/working_set_16MB_iter3.trace
+step=6 benchmark=working_set array_size_bytes=33554432 array_size_human=32MB iterations=3 total_accesses=25165824 exec_time_ms=1187.94 trace_file=/home/junon/RowScope/traces/working_set_32MB_iter3.trace
+step=7 benchmark=working_set array_size_bytes=67108860 array_size_human=67108860B iterations=3 total_accesses=50331645 exec_time_ms=2344.64 trace_file=/home/junon/RowScope/traces/working_set_67108860B_iter3.trace
+step=8 benchmark=working_set array_size_bytes=134217728 array_size_human=128MB iterations=3 total_accesses=100663296 exec_time_ms=4718.54 trace_file=/home/junon/RowScope/traces/working_set_128MB_iter3.trace

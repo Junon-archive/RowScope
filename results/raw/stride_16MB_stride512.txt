@@ -1,0 +1,7 @@
+benchmark=stride
+array_size_bytes=16777216
+stride_elements=512
+stride_bytes=2048
+accesses=100000
+exec_time_ms=4.57
+trace_file=/home/junon/RowScope/traces/stride_16MB_stride512_100000acc.trace

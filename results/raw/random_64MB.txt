@@ -1,0 +1,6 @@
+benchmark=random
+array_size_bytes=67108864
+accesses=100000
+seed=42
+exec_time_ms=13.15
+trace_file=/home/junon/RowScope/traces/random_64MB_100000acc_seed42.trace

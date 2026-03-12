@@ -1,0 +1,5 @@
+benchmark,avg_hit_rate,avg_conflict_rate,avg_locality_score,num_experiments
+working_set,0.999511,0.000480,0.999031,9
+sequential,0.999511,0.000482,0.999030,4
+stride,0.909084,0.090756,0.818327,11
+random,0.040703,0.959137,-0.918435,4

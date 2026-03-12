@@ -1,0 +1,6 @@
+benchmark=sequential
+array_size_bytes=1048576
+iterations=3
+total_accesses=786432
+exec_time_ms=38.36
+trace_file=/home/junon/RowScope/traces/sequential_1MB_stride1_seed0_iter3.trace
