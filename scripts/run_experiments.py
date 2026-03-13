@@ -1,33 +1,33 @@
 #!/usr/bin/env python3
 """
-RowScope Experiment Orchestrator
-=================================
-Project: RowScope — DRAM Row Buffer Locality Analyzer
-File:    scripts/run_experiments.py
-Purpose: Python-level orchestration of C benchmark experiments.
-         Reads experiment parameter matrices, runs C binaries via subprocess,
-         captures key=value stdout into structured JSON result files, and
-         saves trace outputs to traces/.
+RowScope 실험 오케스트레이터
+=============================
+프로젝트: RowScope — DRAM Row Buffer Locality Analyzer
+파일:    scripts/run_experiments.py
+목적: C 벤치마크 실험을 Python 수준에서 조율한다.
+     실험 파라미터 매트릭스를 읽어 subprocess로 C 바이너리를 실행하고,
+     key=value 형식의 stdout을 구조화된 JSON 결과 파일로 저장하며,
+     트레이스 출력을 traces/에 기록한다.
 
-Usage:
+사용법:
     python scripts/run_experiments.py --all
     python scripts/run_experiments.py --benchmark sequential
     python scripts/run_experiments.py --stride-sweep
     python scripts/run_experiments.py --workingset-sweep
     python scripts/run_experiments.py --analyze-only
 
-Flags:
-    --all                Run all experiments (sequential, random, stride, sweep)
-    --benchmark NAME     Run only the named benchmark
+플래그:
+    --all                모든 실험 실행 (sequential, random, stride, sweep)
+    --benchmark NAME     지정한 벤치마크만 실행
                          (sequential | random | stride | sweep)
-    --stride-sweep       Run stride_access across all configured stride values
-    --workingset-sweep   Run working_set_sweep across all configured sizes
-    --analyze-only       Skip benchmark execution; re-run analysis only
-    --no-trace           Pass --no-trace to C binaries (timing only, no trace files)
-    --dry-run            Print commands without executing them
+    --stride-sweep       설정된 모든 stride 값으로 stride_access 실행
+    --workingset-sweep   설정된 모든 크기로 working_set_sweep 실행
+    --analyze-only       벤치마크 실행 건너뜀; 기존 트레이스 파일 분석만 수행
+    --no-trace           C 바이너리에 --no-trace 전달 (타이밍 전용, 트레이스 파일 없음)
+    --dry-run            실행 없이 명령어만 출력
 
-Author:  [Implementation Engineer]
-Date:    2026-03-11
+작성자:  [Implementation Engineer]
+날짜:    2026-03-11
 """
 
 import argparse
@@ -40,7 +40,7 @@ from pathlib import Path
 from typing import Optional
 
 # ---------------------------------------------------------------------------
-# Project root: one level up from this script's directory
+# 프로젝트 루트: 이 스크립트 디렉터리의 한 단계 위
 # ---------------------------------------------------------------------------
 SCRIPT_DIR = Path(__file__).resolve().parent
 ROOT_DIR   = SCRIPT_DIR.parent
@@ -49,15 +49,15 @@ TRACES_DIR = ROOT_DIR / "traces"
 RESULTS_RAW_DIR = ROOT_DIR / "results" / "raw"
 
 # ---------------------------------------------------------------------------
-# Experiment parameter matrix (architecture.md §9)
+# 실험 파라미터 매트릭스 (architecture.md §9)
 # ---------------------------------------------------------------------------
 EXPERIMENTS = {
-    # sequential: iterations controls how many full sweeps are done.
-    # For large arrays we cap at 1 iteration to keep trace files below 50 MB.
-    # 1 MB  * 1 iter  / 4 bytes = 262 144 accesses  ->  ~2.6 MB trace
-    # 4 MB  * 1 iter  / 4 bytes = 1 048 576 accesses ->  ~10 MB trace
-    # 16 MB * 1 iter  / 4 bytes = 4 194 304 accesses ->  ~42 MB trace (borderline; ok)
-    # 64 MB: use --no-trace; too large for analysis anyway
+    # sequential: iterations는 전체 순회 횟수를 제어한다.
+    # 큰 배열의 경우 트레이스 파일이 50MB 이하가 되도록 1회로 제한한다.
+    # 1 MB  × 1 iter  / 4 bytes = 262,144 접근   →  ~2.6 MB 트레이스
+    # 4 MB  × 1 iter  / 4 bytes = 1,048,576 접근 →  ~10 MB 트레이스
+    # 16 MB × 1 iter  / 4 bytes = 4,194,304 접근 →  ~42 MB 트레이스 (경계선; 허용)
+    # 64 MB: --no-trace 사용; 분석에도 너무 큼
     "sequential": [
         {"size": 1  * 1024 * 1024, "iterations": 1, "no_trace": False},
         {"size": 4  * 1024 * 1024, "iterations": 1, "no_trace": False},
@@ -74,7 +74,7 @@ EXPERIMENTS = {
         {"size": 16 * 1024 * 1024, "stride": s, "accesses": 200000}
         for s in [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
     ],
-    # working_set_sweep is a single invocation handled separately
+    # working_set_sweep은 별도로 처리되는 단일 호출
     "sweep": [
         {
             "min_size":   512 * 1024,
@@ -87,7 +87,7 @@ EXPERIMENTS = {
 
 
 def _human_size(n: int) -> str:
-    """Return a compact human-readable size string (e.g. 1048576 -> '1MB')."""
+    """간결하게 사람이 읽기 쉬운 크기 문자열을 반환한다 (예: 1048576 -> '1MB')."""
     if n >= (1 << 20) and n % (1 << 20) == 0:
         return f"{n >> 20}MB"
     if n >= (1 << 10) and n % (1 << 10) == 0:
@@ -97,9 +97,9 @@ def _human_size(n: int) -> str:
 
 def _parse_kv_output(text: str) -> dict:
     """
-    Parse C benchmark stdout (key=value lines) into a Python dict.
-    Multi-value steps (working_set_sweep) produce multiple dicts.
-    Returns a list of dicts (one per output line that contains '=').
+    C 벤치마크 stdout (key=value 줄)을 Python dict로 파싱한다.
+    여러 단계 출력 (working_set_sweep)은 여러 dict를 생성한다.
+    '='가 포함된 각 출력 줄에 대해 dict 리스트를 반환한다.
     """
     results = []
     for line in text.strip().splitlines():
@@ -118,16 +118,16 @@ def _parse_kv_output(text: str) -> dict:
 
 def _run_command(cmd: list, dry_run: bool = False) -> str:
     """
-    Run a subprocess command, return its stdout as a string.
-    Prints the command before running.  Exits on non-zero return code.
+    subprocess 명령어를 실행하고 stdout 문자열을 반환한다.
+    실행 전 명령어를 출력한다. 0이 아닌 반환 코드 시 종료한다.
     """
     return _run_command_in_dir(cmd, cwd=None, dry_run=dry_run)
 
 
 def _run_command_in_dir(cmd: list, cwd: Optional[str] = None, dry_run: bool = False) -> str:
     """
-    Run a subprocess command in a given working directory.
-    Returns stdout as a string.  Exits on non-zero return code.
+    지정된 작업 디렉터리에서 subprocess 명령어를 실행한다.
+    stdout을 문자열로 반환한다. 0이 아닌 반환 코드 시 종료한다.
     """
     cmd_str = " ".join(str(c) for c in cmd)
     print(f"  [cmd] {cmd_str}")
@@ -162,7 +162,7 @@ def _run_command_in_dir(cmd: list, cwd: Optional[str] = None, dry_run: bool = Fa
 
 
 def _save_json(records: list, json_path: Path) -> None:
-    """Persist a list of result records to a JSON file."""
+    """결과 레코드 리스트를 JSON 파일로 저장한다."""
     json_path.parent.mkdir(parents=True, exist_ok=True)
     with open(json_path, "w") as f:
         json.dump(records, f, indent=2)
@@ -170,7 +170,7 @@ def _save_json(records: list, json_path: Path) -> None:
 
 
 def _check_binary(name: str) -> Path:
-    """Return path to named binary, exit if not found."""
+    """지정한 바이너리의 경로를 반환하고, 없으면 종료한다."""
     binary = BIN_DIR / name
     if not binary.exists():
         print(
@@ -183,18 +183,18 @@ def _check_binary(name: str) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# Per-benchmark run functions
+# 벤치마크별 실행 함수
 # ---------------------------------------------------------------------------
 
 def run_sequential(no_trace: bool = False, dry_run: bool = False) -> list:
-    """Run sequential_access for all configured sizes. Returns list of result dicts."""
+    """설정된 모든 크기로 sequential_access를 실행한다. 결과 dict 리스트를 반환한다."""
     binary = _check_binary("sequential_access")
     all_results = []
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     for params in EXPERIMENTS["sequential"]:
         size_h = _human_size(params["size"])
-        # Per-experiment no_trace flag (e.g. for 64 MB to avoid huge trace files)
+        # 실험별 no_trace 플래그 (예: 거대한 트레이스 파일을 피하기 위한 64MB용)
         experiment_no_trace = no_trace or params.get("no_trace", False)
         trace_path = TRACES_DIR / f"sequential_{size_h}_stride1_seed0_iter{params['iterations']}.trace"
 
@@ -221,7 +221,7 @@ def run_sequential(no_trace: bool = False, dry_run: bool = False) -> list:
 
 
 def run_random(no_trace: bool = False, dry_run: bool = False) -> list:
-    """Run random_access for all configured sizes. Returns list of result dicts."""
+    """설정된 모든 크기로 random_access를 실행한다. 결과 dict 리스트를 반환한다."""
     binary = _check_binary("random_access")
     all_results = []
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -251,7 +251,7 @@ def run_random(no_trace: bool = False, dry_run: bool = False) -> list:
 
 
 def run_stride(no_trace: bool = False, dry_run: bool = False) -> list:
-    """Run stride_access for all configured stride values. Returns list of result dicts."""
+    """설정된 모든 stride 값으로 stride_access를 실행한다. 결과 dict 리스트를 반환한다."""
     binary = _check_binary("stride_access")
     all_results = []
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -281,7 +281,7 @@ def run_stride(no_trace: bool = False, dry_run: bool = False) -> list:
 
 
 def run_sweep(no_trace: bool = False, dry_run: bool = False) -> list:
-    """Run working_set_sweep. Returns list of result dicts."""
+    """working_set_sweep을 실행한다. 결과 dict 리스트를 반환한다."""
     binary = _check_binary("working_set_sweep")
     all_results = []
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -313,8 +313,8 @@ def run_sweep(no_trace: bool = False, dry_run: bool = False) -> list:
 
 def run_analysis(dry_run: bool = False) -> None:
     """
-    Run Python analysis pipeline on trace files already in traces/.
-    Invokes analysis.analyze_trace as a module so relative imports resolve.
+    traces/에 있는 트레이스 파일에 대해 Python 분석 파이프라인을 실행한다.
+    상대 임포트가 해결되도록 analysis.analyze_trace를 모듈로 실행한다.
     """
     analyze_module = ROOT_DIR / "analysis" / "analyze_trace.py"
     if not analyze_module.exists():
@@ -330,13 +330,13 @@ def run_analysis(dry_run: bool = False) -> None:
         "--verbose",
     ]
     print("\n[analysis] Running analysis.analyze_trace...")
-    # Run from project root so the 'analysis' package is importable
+    # 'analysis' 패키지를 임포트할 수 있도록 프로젝트 루트에서 실행
     _run_command_in_dir(cmd, cwd=str(ROOT_DIR), dry_run=dry_run)
 
 
 def run_summarize(dry_run: bool = False) -> None:
     """
-    Run summarize_results.py to produce summary_table.csv.
+    summary_table.csv 생성을 위해 summarize_results.py를 실행한다.
     """
     output_csv   = ROOT_DIR / "results" / "processed" / "summary.csv"
     summary_tbl  = ROOT_DIR / "results" / "processed" / "summary_table.csv"
@@ -356,7 +356,7 @@ def run_summarize(dry_run: bool = False) -> None:
 
 
 # ---------------------------------------------------------------------------
-# CLI entry point
+# CLI 진입점
 # ---------------------------------------------------------------------------
 
 def build_parser() -> argparse.ArgumentParser:
@@ -418,7 +418,7 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
-    # Ensure output directories exist
+    # 출력 디렉터리가 존재하는지 확인
     TRACES_DIR.mkdir(parents=True, exist_ok=True)
     RESULTS_RAW_DIR.mkdir(parents=True, exist_ok=True)
 

@@ -1,33 +1,33 @@
 /*
- * Project: RowScope — DRAM Row Buffer Locality Analyzer
- * File:    benchmarks/working_set_sweep.c
- * Purpose: Working set size sweep benchmark.
- *          Iterates over 'steps' logarithmically-spaced array sizes between
- *          min-size and max-size.  For each size performs 'iterations' full
- *          sequential passes and writes a separate trace file.
- *          Demonstrates how row buffer locality behaves across different
- *          working set sizes relative to DRAM row capacity.
+ * 프로젝트: RowScope — DRAM Row Buffer Locality Analyzer
+ * 파일:    benchmarks/working_set_sweep.c
+ * 목적: 워킹 셋 크기 스윕 벤치마크.
+ *       min-size와 max-size 사이에서 로그 등간격으로 'steps'개의 배열 크기를
+ *       순회한다. 각 크기에서 'iterations'번 전체 순차 패스를 수행하고
+ *       별도의 트레이스 파일을 기록한다.
+ *       DRAM row 용량 대비 다양한 워킹 셋 크기에서 row buffer locality가
+ *       어떻게 변하는지를 관찰한다.
  *
  * CLI:     ./working_set_sweep [--min-size=N] [--max-size=N] [--steps=N] \
  *                              [--iterations=N] [--output-dir=DIR] [--no-trace]
  *
- * Output (stdout): one key=value block per step, prefixed with step index.
+ * 출력 (stdout): 각 단계마다 key=value 블록 한 줄, step 인덱스 접두사 포함.
  *   step=0 benchmark=working_set array_size_bytes=524288 ...
  *   step=1 benchmark=working_set array_size_bytes=1048576 ...
  *   ...
  *
- * Trace files: {output-dir}/working_set_{size_human}_iter{iterations}.trace
+ * 트레이스 파일: {output-dir}/working_set_{size_human}_iter{iterations}.trace
  *
- * Author:  [Implementation Engineer]
- * Date:    2026-03-11
+ * 작성자:  [Implementation Engineer]
+ * 날짜:    2026-03-11
  */
 
 #include "common.h"
 
 /*
- * Run a single sequential-access pass for a given array size.
- * Writes addresses to *tw if tw->enabled.
- * Returns elapsed time in milliseconds.
+ * 주어진 배열 크기로 단일 순차 접근 패스를 실행한다.
+ * tw->enabled가 참이면 *tw에 주소를 기록한다.
+ * 경과 시간을 밀리초로 반환한다.
  */
 static double run_sequential_pass(long size_bytes, long iterations,
                                   TraceWriter *tw) {
@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    /* Build log-spaced size array */
+    /* 로그 등간격 크기 배열 생성 */
     double log_min  = log((double)args.min_size);
     double log_max  = log((double)args.max_size);
     int    steps    = args.steps;
@@ -85,19 +85,19 @@ int main(int argc, char *argv[]) {
         double log_size = log_min + frac * (log_max - log_min);
         long   raw_size = (long)exp(log_size);
 
-        /* Round down to nearest multiple of sizeof(int) = 4 */
+        /* sizeof(int) = 4의 배수로 내림 처리 */
         raw_size = (raw_size / 4L) * 4L;
         if (raw_size < 4L) raw_size = 4L;
         sizes[s] = raw_size;
     }
 
-    /* Run one benchmark step per size */
+    /* 각 크기에 대해 벤치마크 단계 실행 */
     for (int s = 0; s < steps; s++) {
         long  step_size      = sizes[s];
         long  num_elements   = step_size / (long)sizeof(int);
         long  total_accesses = num_elements * args.iterations;
 
-        /* Build trace file path for this step */
+        /* 이 단계의 트레이스 파일 경로 생성 */
         char  trace_path[512];
         char  size_human[32];
         format_size_human(step_size, size_human, sizeof(size_human));
@@ -110,16 +110,16 @@ int main(int argc, char *argv[]) {
                      args.output_dir, size_human, args.iterations);
         }
 
-        /* Open trace writer for this step */
+        /* 이 단계의 트레이스 기록기 열기 */
         TraceWriter tw;
         if (trace_writer_open(&tw, args.no_trace ? NULL : trace_path,
                               "working_set",
-                              1,              /* stride = 1 (sequential) */
+                              1,              /* 스트라이드 = 1 (순차 접근) */
                               step_size,
                               total_accesses,
-                              0,              /* seed N/A */
+                              0,              /* 시드 해당 없음 */
                               args.iterations) != 0) {
-            /* Non-fatal: skip this step's trace but continue */
+            /* 치명적 오류 아님: 이 단계의 트레이스를 건너뛰고 계속 */
             fprintf(stderr, "[working_set_sweep] WARNING: could not open trace for step %d, skipping\n", s);
             tw.enabled = 0;
             tw.fp = NULL;
@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
         double elapsed_ms = run_sequential_pass(step_size, args.iterations, &tw);
         trace_writer_close(&tw);
 
-        /* Print per-step results */
+        /* 단계별 결과 출력 */
         printf("step=%d benchmark=working_set array_size_bytes=%ld array_size_human=%s "
                "iterations=%ld total_accesses=%ld exec_time_ms=%.2f trace_file=%s\n",
                s, step_size, size_human,

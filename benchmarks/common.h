@@ -1,17 +1,17 @@
 /*
- * Project: RowScope — DRAM Row Buffer Locality Analyzer
- * File:    benchmarks/common.h
- * Purpose: Shared header-only utilities: timing, trace writing, CLI arg parsing.
- *          All functions are static inline or static to avoid multiple-definition
- *          errors when included in multiple translation units.
- * Author:  [Implementation Engineer]
- * Date:    2026-03-11
+ * 프로젝트: RowScope — DRAM Row Buffer Locality Analyzer
+ * 파일:    benchmarks/common.h
+ * 목적: 공통 헤더 전용 유틸리티: 타이밍, 트레이스 기록, CLI 인수 파싱.
+ *       모든 함수는 static inline 또는 static으로 선언되어,
+ *       여러 번역 단위에 include되어도 다중 정의 오류가 발생하지 않는다.
+ * 작성자:  [Implementation Engineer]
+ * 날짜:    2026-03-11
  *
- * Trace file format (per architecture.md section 5):
- *   Line 1: # benchmark=X size=Y stride=Z accesses=N element_size=4 seed=S iterations=I
- *   Lines 2+: one decimal virtual address per line
+ * 트레이스 파일 형식 (architecture.md §5 참고):
+ *   1행: # benchmark=X size=Y stride=Z accesses=N element_size=4 seed=S iterations=I
+ *   2행~: 십진수 가상 주소 (한 줄에 하나)
  *
- * Naming convention for auto-generated trace paths:
+ * 자동 생성 트레이스 파일명 규칙:
  *   traces/{benchmark}_{size_human}_{param}.trace
  */
 
@@ -19,10 +19,11 @@
 #define ROWSCOPE_COMMON_H
 
 /*
- * _POSIX_C_SOURCE 200112L is required before any system header to expose:
- *   - struct timespec and clock_gettime(CLOCK_MONOTONIC, ...)   [POSIX.1-2001]
+ * _POSIX_C_SOURCE 200112L은 어떤 시스템 헤더보다 먼저 정의해야
+ * 아래 기능들을 사용할 수 있다:
+ *   - struct timespec 및 clock_gettime(CLOCK_MONOTONIC, ...)   [POSIX.1-2001]
  *   - posix_memalign()                                          [POSIX.1-2001]
- * Must be defined before the first #include.
+ * 반드시 첫 번째 #include 이전에 정의해야 한다.
  */
 #ifndef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200112L
@@ -36,7 +37,7 @@
 #include <math.h>
 
 /* =========================================================================
- * Timing
+ * 타이밍 (Timing)
  * ========================================================================= */
 
 typedef struct {
@@ -52,14 +53,14 @@ static inline void timer_stop(Timer *t) {
     clock_gettime(CLOCK_MONOTONIC, &t->end);
 }
 
-/* Returns elapsed time in milliseconds. Call timer_stop() first. */
+/* 경과 시간을 밀리초로 반환한다. timer_stop() 호출 후 사용할 것. */
 static inline double timer_elapsed_ms(const Timer *t) {
     double sec  = (double)(t->end.tv_sec  - t->start.tv_sec);
     double nsec = (double)(t->end.tv_nsec - t->start.tv_nsec);
     return (sec * 1000.0) + (nsec / 1.0e6);
 }
 
-/* Returns elapsed time in nanoseconds. Call timer_stop() first. */
+/* 경과 시간을 나노초로 반환한다. timer_stop() 호출 후 사용할 것. */
 static inline uint64_t timer_elapsed_ns(const Timer *t) {
     uint64_t sec  = (uint64_t)(t->end.tv_sec  - t->start.tv_sec);
     uint64_t nsec = (uint64_t)((int64_t)t->end.tv_nsec - (int64_t)t->start.tv_nsec);
@@ -67,23 +68,23 @@ static inline uint64_t timer_elapsed_ns(const Timer *t) {
 }
 
 /* =========================================================================
- * Trace Writer
+ * 트레이스 기록기 (Trace Writer)
  * =========================================================================
- * The trace file starts with a single metadata header line:
+ * 트레이스 파일은 메타데이터 헤더 한 줄로 시작한다:
  *   # benchmark=sequential size=16777216 stride=1 accesses=4194304 element_size=4 seed=0 iterations=3
- * Followed by one decimal virtual address per line (no spaces, no blanks).
+ * 이후 가상 주소를 십진수로 한 줄씩 기록한다 (공백이나 빈 줄 없음).
  */
 
 typedef struct {
     FILE   *fp;
-    int     enabled;       /* 0 if --no-trace was passed */
-    long    write_count;   /* number of address lines written so far */
+    int     enabled;       /* 0이면 트레이스 기록 비활성화 (--no-trace 옵션) */
+    long    write_count;   /* 지금까지 기록한 주소 줄 수 */
 } TraceWriter;
 
 /*
- * Open trace file and write the metadata header line.
- * Returns 0 on success, -1 on error.
- * If path is NULL or empty, sets tw->enabled = 0 (no-op writes).
+ * 트레이스 파일을 열고 메타데이터 헤더 줄을 기록한다.
+ * 성공 시 0, 오류 시 -1을 반환한다.
+ * path가 NULL이거나 빈 문자열이면 tw->enabled = 0으로 설정하고 기록을 비활성화한다.
  */
 static inline int trace_writer_open(TraceWriter *tw,
                                     const char  *path,
@@ -111,7 +112,7 @@ static inline int trace_writer_open(TraceWriter *tw,
 
     tw->enabled = 1;
 
-    /* Write metadata header (architecture.md §5.1) */
+    /* 메타데이터 헤더 기록 (architecture.md §5.1) */
     fprintf(tw->fp,
             "# benchmark=%s size=%ld stride=%ld accesses=%ld element_size=4 seed=%ld iterations=%ld\n",
             benchmark, array_size, stride, accesses, seed, iterations);
@@ -120,8 +121,8 @@ static inline int trace_writer_open(TraceWriter *tw,
 }
 
 /*
- * Write a single virtual address to the trace.
- * This is the hot path — kept minimal.
+ * 트레이스에 가상 주소 하나를 기록한다.
+ * 핫 패스(hot path)이므로 최소한의 코드만 실행한다.
  */
 static inline void trace_writer_write(TraceWriter *tw, uintptr_t address) {
     if (tw->enabled) {
@@ -131,8 +132,8 @@ static inline void trace_writer_write(TraceWriter *tw, uintptr_t address) {
 }
 
 /*
- * Flush and close the trace file.
- * Returns 0 on success, -1 on error.
+ * 트레이스 파일을 플러시하고 닫는다.
+ * 성공 시 0, 오류 시 -1을 반환한다.
  */
 static inline int trace_writer_close(TraceWriter *tw) {
     if (tw->fp != NULL) {
@@ -150,24 +151,24 @@ static inline int trace_writer_close(TraceWriter *tw) {
 }
 
 /* =========================================================================
- * CLI Argument Parsing
+ * CLI 인수 파싱 (CLI Argument Parsing)
  * =========================================================================
- * Supports --key=value format.  Unknown keys are silently ignored.
- * Boolean flags (--no-trace) set the corresponding field to 1.
+ * --key=value 형식을 지원한다. 알 수 없는 키는 무시한다.
+ * 불리언 플래그 (--no-trace)는 해당 필드를 1로 설정한다.
  */
 
 typedef struct {
-    long size;           /* array size in bytes          (default: 16MB)  */
-    long iterations;     /* full traversal count          (default: 3)     */
-    long stride;         /* stride in elements (int)      (default: 1)     */
-    long accesses;       /* number of memory accesses     (default: 1000000) */
-    long seed;           /* RNG seed                      (default: 42)    */
-    char output[256];    /* trace output path             (default: "")    */
-    int  no_trace;       /* 1 = disable trace writing     (default: 0)     */
-    long min_size;       /* sweep: minimum array size     (default: 524288)*/
-    long max_size;       /* sweep: maximum array size     (default: 134217728) */
-    int  steps;          /* sweep: number of size steps   (default: 9)     */
-    char output_dir[256];/* sweep: output directory       (default: "traces") */
+    long size;           /* 배열 크기 (바이트)            (기본값: 16MB)   */
+    long iterations;     /* 전체 순회 횟수                (기본값: 3)      */
+    long stride;         /* 스트라이드 (int 요소 단위)     (기본값: 1)      */
+    long accesses;       /* 메모리 접근 횟수              (기본값: 1000000) */
+    long seed;           /* 난수 시드                     (기본값: 42)     */
+    char output[256];    /* 트레이스 출력 경로             (기본값: "")     */
+    int  no_trace;       /* 1이면 트레이스 기록 비활성화   (기본값: 0)      */
+    long min_size;       /* 스윕 최소 배열 크기           (기본값: 524288) */
+    long max_size;       /* 스윕 최대 배열 크기           (기본값: 134217728) */
+    int  steps;          /* 스윕 크기 단계 수             (기본값: 9)      */
+    char output_dir[256];/* 스윕 출력 디렉터리            (기본값: "traces") */
 } BenchmarkArgs;
 
 static inline void print_usage(const char *prog_name) {
@@ -192,12 +193,12 @@ static inline void print_usage(const char *prog_name) {
 }
 
 /*
- * Parse argc/argv into a BenchmarkArgs struct.
- * Applies defaults for all unspecified fields.
- * Unknown arguments are silently ignored.
+ * argc/argv를 파싱하여 BenchmarkArgs 구조체를 채운다.
+ * 미지정 필드에는 기본값을 적용한다.
+ * 알 수 없는 인수는 무시한다.
  */
 static inline void parse_args(int argc, char *argv[], BenchmarkArgs *args) {
-    /* Apply defaults */
+    /* 기본값 설정 */
     args->size        = 16L * 1024L * 1024L;   /* 16 MB */
     args->iterations  = 3;
     args->stride      = 1;
@@ -214,7 +215,7 @@ static inline void parse_args(int argc, char *argv[], BenchmarkArgs *args) {
     for (int i = 1; i < argc; i++) {
         const char *arg = argv[i];
 
-        /* Boolean flag: --no-trace */
+        /* 불리언 플래그: --no-trace */
         if (strcmp(arg, "--no-trace") == 0) {
             args->no_trace = 1;
             continue;
@@ -226,12 +227,12 @@ static inline void parse_args(int argc, char *argv[], BenchmarkArgs *args) {
             exit(0);
         }
 
-        /* --key=value pairs */
+        /* --key=value 쌍 처리 */
         if (strncmp(arg, "--", 2) != 0) continue;
         const char *eq = strchr(arg, '=');
         if (eq == NULL) continue;
 
-        /* Extract key (without leading --) and value */
+        /* '--' 이후의 키와 등호 뒤의 값을 추출 */
         size_t key_len = (size_t)(eq - (arg + 2));
         char   key[64];
         if (key_len >= sizeof(key)) continue;
@@ -262,18 +263,18 @@ static inline void parse_args(int argc, char *argv[], BenchmarkArgs *args) {
             strncpy(args->output_dir, val, sizeof(args->output_dir) - 1);
             args->output_dir[sizeof(args->output_dir) - 1] = '\0';
         }
-        /* Unknown keys are silently ignored */
+        /* 알 수 없는 키는 무시 */
     }
 }
 
 /* =========================================================================
- * Memory Helpers
+ * 메모리 관련 유틸리티 (Memory Helpers)
  * ========================================================================= */
 
 /*
- * Allocate size bytes aligned to alignment bytes using posix_memalign.
- * alignment must be a power of 2 and a multiple of sizeof(void*).
- * Returns pointer on success, exits on failure.
+ * posix_memalign을 사용해 alignment 바이트 경계에 정렬된 size 바이트를 할당한다.
+ * alignment는 2의 거듭제곱이어야 하며 sizeof(void*)의 배수여야 한다.
+ * 성공 시 포인터를 반환하고, 실패 시 프로세스를 종료한다.
  */
 static inline void *alloc_aligned(size_t size, size_t alignment) {
     void *ptr = NULL;
@@ -287,12 +288,12 @@ static inline void *alloc_aligned(size_t size, size_t alignment) {
 }
 
 /* =========================================================================
- * Human-readable size formatting helper (for trace filenames / stdout)
+ * 사람이 읽기 쉬운 크기 포매팅 (트레이스 파일명 / stdout 출력용)
  * ========================================================================= */
 
 /*
- * Format a byte count as a human-readable string in the buf provided.
- * Examples: 1048576 -> "1MB", 524288 -> "512KB", 67108864 -> "64MB"
+ * 바이트 수를 사람이 읽기 쉬운 문자열로 변환하여 buf에 저장한다.
+ * 예시: 1048576 -> "1MB", 524288 -> "512KB", 67108864 -> "64MB"
  */
 static inline void format_size_human(long bytes, char *buf, size_t buf_len) {
     if (bytes >= (1L << 20) && (bytes % (1L << 20)) == 0) {

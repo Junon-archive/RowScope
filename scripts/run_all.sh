@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Project: RowScope — DRAM Row Buffer Locality Analyzer
-# File:    scripts/run_all.sh
-# Purpose: Full pipeline runner.
-#          Stages: build → benchmark → analysis → visualization → report
-#          Each stage can be skipped with a flag.
+# 프로젝트: RowScope — DRAM Row Buffer Locality Analyzer
+# 파일:    scripts/run_all.sh
+# 목적: 전체 파이프라인 실행기.
+#       단계: 빌드 → 벤치마크 → 분석 → 시각화 → 보고서
+#       각 단계는 플래그로 건너뛸 수 있다.
 #
-# Usage:   ./scripts/run_all.sh [--skip-build] [--skip-benchmarks] \
+# 사용법:   ./scripts/run_all.sh [--skip-build] [--skip-benchmarks] \
 #                                [--skip-analysis] [--skip-visualization] \
 #                                [--skip-report]
 #
-# Author:  [Implementation Engineer]
-# Date:    2026-03-11
+# 작성자:  [Implementation Engineer]
+# 날짜:    2026-03-11
 # =============================================================================
 
 set -euo pipefail
@@ -27,7 +27,7 @@ ANALYSIS_DIR="$ROOT_DIR/analysis"
 VIZ_DIR="$ROOT_DIR/visualization"
 REPORT_DIR="$ROOT_DIR/report"
 
-# ---- Flag parsing ------------------------------------------------------------
+# ---- 플래그 파싱 ---------------------------------------------------------------
 SKIP_BUILD=0
 SKIP_BENCHMARKS=0
 SKIP_ANALYSIS=0
@@ -51,7 +51,7 @@ for arg in "$@"; do
     esac
 done
 
-# ---- Helpers -----------------------------------------------------------------
+# ---- 헬퍼 함수 ---------------------------------------------------------------
 
 log_stage() {
     echo ""
@@ -69,11 +69,11 @@ require_binary() {
     fi
 }
 
-# ---- Create necessary directories --------------------------------------------
+# ---- 필요한 디렉터리 생성 -------------------------------------------------------
 mkdir -p "$TRACES_DIR" "$RESULTS_RAW_DIR" "$RESULTS_PROC_DIR" "$RESULTS_FIG_DIR"
 
 # ===========================================================================
-# STAGE 1: Build
+# 단계 1: 빌드
 # ===========================================================================
 if [[ $SKIP_BUILD -eq 0 ]]; then
     log_stage "BUILD"
@@ -83,7 +83,7 @@ else
 fi
 
 # ===========================================================================
-# STAGE 2: Run Benchmarks
+# 단계 2: 벤치마크 실행
 # ===========================================================================
 if [[ $SKIP_BENCHMARKS -eq 0 ]]; then
     log_stage "BENCHMARKS"
@@ -93,7 +93,7 @@ if [[ $SKIP_BENCHMARKS -eq 0 ]]; then
     require_binary "stride_access"
     require_binary "working_set_sweep"
 
-    # --- Sequential access: 4 sizes ---
+    # --- 순차 접근: 4가지 크기 ---
     SEQUENTIAL_SIZES=(1048576 4194304 16777216 67108864)
     for size in "${SEQUENTIAL_SIZES[@]}"; do
         size_mb=$(( size / 1048576 ))
@@ -107,7 +107,7 @@ if [[ $SKIP_BENCHMARKS -eq 0 ]]; then
             | tee "$result_file"
     done
 
-    # --- Random access: 4 sizes ---
+    # --- 무작위 접근: 4가지 크기 ---
     RANDOM_SIZES=(1048576 4194304 16777216 67108864)
     for size in "${RANDOM_SIZES[@]}"; do
         size_mb=$(( size / 1048576 ))
@@ -122,7 +122,7 @@ if [[ $SKIP_BENCHMARKS -eq 0 ]]; then
             | tee "$result_file"
     done
 
-    # --- Stride access: 11 stride values (fixed 16MB) ---
+    # --- 스트라이드 접근: 11가지 stride 값 (고정 16MB) ---
     STRIDES=(1 2 4 8 16 32 64 128 256 512 1024)
     for stride in "${STRIDES[@]}"; do
         trace_file="$TRACES_DIR/stride_16MB_stride${stride}_100000acc.trace"
@@ -136,7 +136,7 @@ if [[ $SKIP_BENCHMARKS -eq 0 ]]; then
             | tee "$result_file"
     done
 
-    # --- Working set sweep: 512KB .. 128MB, 9 steps ---
+    # --- 워킹 셋 스윕: 512KB ~ 128MB, 9단계 ---
     sweep_result_file="$RESULTS_RAW_DIR/working_set_sweep.txt"
     echo "[run_all] working_set_sweep -> $TRACES_DIR"
     "$BIN_DIR/working_set_sweep" \
@@ -153,7 +153,7 @@ else
 fi
 
 # ===========================================================================
-# STAGE 3: Analysis
+# 단계 3: 분석
 # ===========================================================================
 if [[ $SKIP_ANALYSIS -eq 0 ]]; then
     log_stage "ANALYSIS"
@@ -167,8 +167,7 @@ if [[ $SKIP_ANALYSIS -eq 0 ]]; then
     fi
 
     echo "[run_all] Running analyze_trace.py on all trace files..."
-    # TODO: Implementation Engineer should update this invocation
-    # once analyze_trace.py is implemented.
+    # TODO: analyze_trace.py 구현 후 이 호출을 업데이트해야 한다.
     export PYTHONPATH="$ROOT_DIR:${PYTHONPATH:-}"
     python3 "$ANALYZE_SCRIPT" \
         --trace-dir "$TRACES_DIR" \
@@ -188,7 +187,7 @@ else
 fi
 
 # ===========================================================================
-# STAGE 4: Visualization
+# 단계 4: 시각화
 # ===========================================================================
 if [[ $SKIP_VISUALIZATION -eq 0 ]]; then
     log_stage "VISUALIZATION"
@@ -213,7 +212,7 @@ else
 fi
 
 # ===========================================================================
-# STAGE 5: Report Generation
+# 단계 5: 보고서 생성
 # ===========================================================================
 if [[ $SKIP_REPORT -eq 0 ]]; then
     log_stage "REPORT"

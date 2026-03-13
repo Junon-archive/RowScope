@@ -1,24 +1,24 @@
 """
-RowScope — Results Summarizer
-===============================
-Project: RowScope — DRAM Row Buffer Locality Analyzer
-File:    analysis/summarize_results.py
-Purpose: Load summary.csv produced by analyze_trace.py and generate
-         human-readable summary tables grouped by benchmark type.
-         Outputs a condensed summary_table.csv for reporting.
+RowScope — 결과 요약기
+=======================
+프로젝트: RowScope — DRAM Row Buffer Locality Analyzer
+파일:    analysis/summarize_results.py
+목적: analyze_trace.py가 생성한 summary.csv를 불러와
+     벤치마크 유형별로 그룹화한 사람이 읽기 쉬운 요약 테이블을 생성한다.
+     보고서 작성용으로 압축된 summary_table.csv를 출력한다.
 
-Summary CSV schema (architecture.md §6.1):
+Summary CSV 스키마 (architecture.md §6.1):
     benchmark, array_size_bytes, array_size_mb, stride, stride_bytes,
     num_accesses, row_hit_count, row_miss_count, row_conflict_count,
     row_hit_rate, row_miss_rate, row_conflict_rate, locality_score,
     unique_rows_accessed, unique_banks_accessed, trace_file
 
-Output summary_table columns:
+출력 summary_table 컬럼:
     benchmark, avg_hit_rate, avg_conflict_rate, avg_locality_score,
     num_experiments
 
-Author:  [Implementation Engineer]
-Date:    2026-03-11
+작성자:  [Implementation Engineer]
+날짜:    2026-03-11
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ from typing import Optional
 
 
 def _import_pandas():
-    """Import pandas with a helpful error message if not installed."""
+    """pandas를 임포트한다. 설치되지 않은 경우 유용한 오류 메시지를 출력한다."""
     try:
         import pandas as pd
         return pd
@@ -44,16 +44,16 @@ def _import_pandas():
 
 def load_summary(summary_path: str) -> "pd.DataFrame":  # noqa: F821
     """
-    Load summary.csv into a pandas DataFrame.
+    summary.csv를 pandas DataFrame으로 불러온다.
 
     Args:
-        summary_path: Path to summary.csv.
+        summary_path: summary.csv 경로.
 
     Returns:
-        DataFrame with dtypes inferred from CSV content.
+        CSV 내용으로부터 dtype이 추론된 DataFrame.
 
     Raises:
-        FileNotFoundError: If summary_path does not exist.
+        FileNotFoundError: summary_path가 존재하지 않는 경우.
     """
     pd = _import_pandas()
     p = Path(summary_path)
@@ -64,22 +64,22 @@ def load_summary(summary_path: str) -> "pd.DataFrame":  # noqa: F821
 
 def generate_summary_table(df: "pd.DataFrame") -> "pd.DataFrame":  # noqa: F821
     """
-    Generate a human-readable summary table grouped by benchmark type.
+    벤치마크 유형별로 그룹화한 사람이 읽기 쉬운 요약 테이블을 생성한다.
 
-    Groups df by 'benchmark' column and aggregates:
+    df를 'benchmark' 컬럼으로 그룹화하고 아래를 집계한다:
         avg_hit_rate       = mean(row_hit_rate)
         avg_conflict_rate  = mean(row_conflict_rate)
         avg_locality_score = mean(locality_score)
-        num_experiments    = count of rows per group
+        num_experiments    = 그룹별 행 수
 
     Args:
-        df: DataFrame from load_summary().
+        df: load_summary()에서 반환된 DataFrame.
 
     Returns:
-        DataFrame with columns:
+        아래 컬럼을 갖는 DataFrame:
             benchmark, avg_hit_rate, avg_conflict_rate,
             avg_locality_score, num_experiments
-        Sorted by avg_locality_score descending.
+        avg_locality_score 내림차순 정렬.
     """
     pd = _import_pandas()
 
@@ -108,14 +108,14 @@ def generate_summary_table(df: "pd.DataFrame") -> "pd.DataFrame":  # noqa: F821
 
 def save_summary(df: "pd.DataFrame", output_path: str) -> None:  # noqa: F821
     """
-    Write DataFrame to CSV with 6-decimal float precision.
+    DataFrame을 소수점 6자리 정밀도로 CSV에 저장한다.
 
     Args:
-        df:          DataFrame to write.
-        output_path: Destination path.
+        df:          저장할 DataFrame.
+        output_path: 저장 경로.
 
     Raises:
-        OSError: If the output file cannot be written.
+        OSError: 출력 파일을 쓸 수 없는 경우.
     """
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False, float_format="%.6f")
@@ -124,15 +124,15 @@ def save_summary(df: "pd.DataFrame", output_path: str) -> None:  # noqa: F821
 
 def load_all_results(results_dir: str) -> "pd.DataFrame":  # noqa: F821
     """
-    Load and concatenate all summary CSV files found in results_dir.
+    results_dir에서 모든 요약 CSV 파일을 불러와 합친다.
 
-    Searches for files matching 'summary*.csv' and '*_summary.csv'.
+    'summary*.csv'와 '*_summary.csv' 패턴에 맞는 파일을 탐색한다.
 
     Args:
-        results_dir: Directory to search.
+        results_dir: 탐색할 디렉터리.
 
     Returns:
-        Combined DataFrame, or empty DataFrame if none found.
+        합쳐진 DataFrame. 파일이 없으면 빈 DataFrame을 반환.
     """
     pd = _import_pandas()
     p = Path(results_dir)
@@ -140,7 +140,7 @@ def load_all_results(results_dir: str) -> "pd.DataFrame":  # noqa: F821
     if not p.exists():
         return pd.DataFrame()
 
-    # Gather unique paths from both glob patterns
+    # 두 가지 glob 패턴에서 고유한 경로를 수집
     paths = set(p.glob("summary*.csv")) | set(p.glob("*_summary.csv"))
     if not paths:
         return pd.DataFrame()
@@ -160,17 +160,17 @@ def load_all_results(results_dir: str) -> "pd.DataFrame":  # noqa: F821
 
 def print_aligned_table(df: "pd.DataFrame", float_fmt: str = "{:.4f}") -> None:
     """
-    Print a DataFrame to stdout in aligned tabular form.
+    DataFrame을 정렬된 표 형식으로 stdout에 출력한다.
 
     Args:
-        df:        DataFrame to print.
-        float_fmt: Format string for floating-point columns.
+        df:        출력할 DataFrame.
+        float_fmt: 부동소수점 컬럼의 형식 문자열.
     """
     if df.empty:
         print("(empty table)")
         return
 
-    # Build string representations for each cell
+    # 각 셀의 문자열 표현 생성
     col_strings = {}
     for col in df.columns:
         col_strs = []
@@ -181,18 +181,18 @@ def print_aligned_table(df: "pd.DataFrame", float_fmt: str = "{:.4f}") -> None:
                 col_strs.append(str(val))
         col_strings[col] = col_strs
 
-    # Compute column widths
+    # 컬럼 너비 계산
     col_widths = {
         col: max(len(col), max((len(s) for s in col_strings[col]), default=0))
         for col in df.columns
     }
 
-    # Print header
+    # 헤더 출력
     header = "  ".join(col.ljust(col_widths[col]) for col in df.columns)
     print(header)
     print("-" * len(header))
 
-    # Print rows
+    # 행 출력
     for i in range(len(df)):
         row_str = "  ".join(
             col_strings[col][i].ljust(col_widths[col]) for col in df.columns
@@ -201,7 +201,7 @@ def print_aligned_table(df: "pd.DataFrame", float_fmt: str = "{:.4f}") -> None:
 
 
 # ---------------------------------------------------------------------------
-# CLI entry point
+# CLI 진입점
 # ---------------------------------------------------------------------------
 
 def _build_parser() -> argparse.ArgumentParser:

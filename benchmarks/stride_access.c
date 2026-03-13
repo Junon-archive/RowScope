@@ -1,15 +1,15 @@
 /*
- * Project: RowScope — DRAM Row Buffer Locality Analyzer
- * File:    benchmarks/stride_access.c
- * Purpose: Configurable-stride array access benchmark.
- *          Accesses array element at index = (index + stride) % num_elements
- *          for 'accesses' iterations, with wrap-around.
- *          stride=1 produces identical address sequence to sequential_access.
+ * 프로젝트: RowScope — DRAM Row Buffer Locality Analyzer
+ * 파일:    benchmarks/stride_access.c
+ * 목적: 설정 가능한 스트라이드 배열 접근 벤치마크.
+ *       index = (index + stride) % num_elements 방식으로
+ *       'accesses'번 접근하며 랩어라운드를 지원한다.
+ *       stride=1이면 sequential_access와 동일한 주소 시퀀스를 생성한다.
  *
  * CLI:     ./stride_access [--size=N] [--stride=N] [--accesses=N] \
  *                          [--output=PATH] [--no-trace]
  *
- * Output (stdout, key=value format):
+ * 출력 (stdout, key=value 형식):
  *   benchmark=stride
  *   array_size_bytes=16777216
  *   stride_elements=64
@@ -18,8 +18,8 @@
  *   exec_time_ms=8.91
  *   trace_file=traces/stride_16MB_stride64_100000acc.trace
  *
- * Author:  [Implementation Engineer]
- * Date:    2026-03-11
+ * 작성자:  [Implementation Engineer]
+ * 날짜:    2026-03-11
  */
 
 #include "common.h"
@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
 
     long stride_bytes = args.stride * (long)sizeof(int);
 
-    /* Build trace output path if not provided */
+    /* 트레이스 출력 경로가 지정되지 않은 경우 자동으로 생성 */
     char trace_path[512];
     if (args.no_trace) {
         trace_path[0] = '\0';
@@ -55,26 +55,26 @@ int main(int argc, char *argv[]) {
                  size_human, args.stride, args.accesses);
     }
 
-    /* Open trace writer */
+    /* 트레이스 기록기 열기 */
     TraceWriter tw;
     if (trace_writer_open(&tw, args.no_trace ? NULL : trace_path,
                           "stride",
                           args.stride,
                           args.size,
                           args.accesses,
-                          0,   /* seed N/A */
-                          1    /* iterations = 1 for stride */
+                          0,   /* 시드 해당 없음 */
+                          1    /* 스트라이드 접근은 반복 횟수 = 1 */
                           ) != 0) {
         return 1;
     }
 
-    /* Allocate and initialize array */
+    /* 배열 할당 및 초기화 */
     volatile int *arr = (volatile int *)alloc_aligned((size_t)args.size, 4096);
     for (long i = 0; i < num_elements; i++) {
         ((int *)arr)[i] = (int)i;
     }
 
-    /* Timed benchmark loop — stride with wrap-around */
+    /* 타이밍 측정 구간 — 랩어라운드를 포함한 스트라이드 루프 */
     Timer t;
     long index = 0;
     timer_start(&t);
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
     trace_writer_close(&tw);
     free((void *)arr);
 
-    /* Print results */
+    /* 결과 출력 */
     printf("benchmark=stride\n");
     printf("array_size_bytes=%ld\n",  args.size);
     printf("stride_elements=%ld\n",   args.stride);

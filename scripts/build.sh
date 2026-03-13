@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Project: RowScope — DRAM Row Buffer Locality Analyzer
-# File:    scripts/build.sh
-# Purpose: Compile all C benchmark programs into bin/.
-#          Exits with non-zero status if any compilation fails.
-#          Prints per-file success/failure to stdout.
-# Usage:   ./scripts/build.sh
-# Author:  [Implementation Engineer]
-# Date:    2026-03-11
+# 프로젝트: RowScope — DRAM Row Buffer Locality Analyzer
+# 파일:    scripts/build.sh
+# 목적: 모든 C 벤치마크 프로그램을 bin/에 컴파일한다.
+#       컴파일이 하나라도 실패하면 0이 아닌 종료 코드로 종료한다.
+#       파일별 성공/실패 결과를 stdout에 출력한다.
+# 사용법:   ./scripts/build.sh
+# 작성자:  [Implementation Engineer]
+# 날짜:    2026-03-11
 # =============================================================================
 
 set -euo pipefail
@@ -17,9 +17,9 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 BENCH_DIR="$ROOT_DIR/benchmarks"
 BIN_DIR="$ROOT_DIR/bin"
 
-# Architecture.md §8.1 specifies c11 and -lm; using c99 is also conformant for
-# our feature set. We compile with -std=c99 -lm to support math.h (log/exp in
-# working_set_sweep.c) while staying compatible with the gcc version on this host.
+# architecture.md §8.1은 c11과 -lm을 명시하지만, 우리 기능 셋에는 c99도 적합하다.
+# working_set_sweep.c의 math.h (log/exp) 지원을 위해 -std=c99 -lm으로 컴파일하며,
+# 이 호스트의 gcc 버전과도 호환된다.
 CFLAGS="-O2 -std=c99 -Wall -Wextra"
 LDFLAGS="-lm"
 
@@ -56,7 +56,7 @@ for bench in "${BENCHMARKS[@]}"; do
         echo "OK"
     else
         echo "FAILED"
-        # Re-run with stderr visible so the engineer sees the error
+        # 오류 내용이 보이도록 stderr를 노출하여 재실행
         gcc $CFLAGS -o "$out" "$src" $LDFLAGS || true
         FAILED=$((FAILED + 1))
     fi

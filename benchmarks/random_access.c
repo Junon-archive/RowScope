@@ -1,15 +1,15 @@
 /*
- * Project: RowScope — DRAM Row Buffer Locality Analyzer
- * File:    benchmarks/random_access.c
- * Purpose: Random array access benchmark.
- *          Performs 'accesses' uniformly-random reads across an int array.
- *          Uses srand(seed) + rand() for reproducible index generation.
- *          Records each access's virtual address in a trace file.
+ * 프로젝트: RowScope — DRAM Row Buffer Locality Analyzer
+ * 파일:    benchmarks/random_access.c
+ * 목적: 무작위 배열 접근 벤치마크.
+ *       int 배열에서 'accesses'번 균일 무작위 읽기를 수행한다.
+ *       재현 가능한 인덱스 생성을 위해 srand(seed) + rand()를 사용한다.
+ *       각 접근의 가상 주소를 트레이스 파일에 기록한다.
  *
  * CLI:     ./random_access [--size=N] [--accesses=N] [--seed=N] \
  *                          [--output=PATH] [--no-trace]
  *
- * Output (stdout, key=value format):
+ * 출력 (stdout, key=value 형식):
  *   benchmark=random
  *   array_size_bytes=16777216
  *   accesses=100000
@@ -17,8 +17,8 @@
  *   exec_time_ms=12.47
  *   trace_file=traces/random_16MB_100000acc_seed42.trace
  *
- * Author:  [Implementation Engineer]
- * Date:    2026-03-11
+ * 작성자:  [Implementation Engineer]
+ * 날짜:    2026-03-11
  */
 
 #include "common.h"
@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    /* Build trace output path if not provided */
+    /* 트레이스 출력 경로가 지정되지 않은 경우 자동으로 생성 */
     char trace_path[512];
     if (args.no_trace) {
         trace_path[0] = '\0';
@@ -48,36 +48,36 @@ int main(int argc, char *argv[]) {
                  size_human, args.accesses, args.seed);
     }
 
-    /* Open trace writer */
+    /* 트레이스 기록기 열기 */
     TraceWriter tw;
     if (trace_writer_open(&tw, args.no_trace ? NULL : trace_path,
                           "random",
-                          0,                  /* stride = 0 (random, N/A) */
+                          0,                  /* 스트라이드 = 0 (무작위, 해당 없음) */
                           args.size,
                           args.accesses,
                           args.seed,
-                          1                   /* iterations = 1 for random */
+                          1                   /* 무작위 접근은 반복 횟수 = 1 */
                           ) != 0) {
         return 1;
     }
 
-    /* Allocate and initialize array */
+    /* 배열 할당 및 초기화 */
     volatile int *arr = (volatile int *)alloc_aligned((size_t)args.size, 4096);
     for (long i = 0; i < num_elements; i++) {
         ((int *)arr)[i] = (int)i;
     }
 
-    /* Seed the PRNG for reproducibility */
+    /* 재현성을 위해 PRNG 시드 설정 */
     srand((unsigned int)args.seed);
 
-    /* Timed benchmark loop */
+    /* 타이밍 측정 구간 — 벤치마크 루프 */
     Timer t;
     timer_start(&t);
 
     for (long a = 0; a < args.accesses; a++) {
-        /* Generate random index in [0, num_elements) */
+        /* [0, num_elements) 범위의 무작위 인덱스 생성 */
         long idx = (long)(rand()) % num_elements;
-        if (idx < 0) idx = -idx;  /* guard against implementation-defined negatives */
+        if (idx < 0) idx = -idx;  /* 구현 정의 음수 결과에 대한 방어 처리 */
 
         volatile int val = arr[idx];
         (void)val;
@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
     trace_writer_close(&tw);
     free((void *)arr);
 
-    /* Print results */
+    /* 결과 출력 */
     printf("benchmark=random\n");
     printf("array_size_bytes=%ld\n",  args.size);
     printf("accesses=%ld\n",          args.accesses);

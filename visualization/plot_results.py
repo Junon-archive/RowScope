@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """
-RowScope Visualization Script
+RowScope 시각화 스크립트
 
-Generates publication-quality figures from RowScope experimental results.
-Reads processed summary statistics and creates multiple visualization plots
-showing row buffer locality behavior across different workload types and
-access patterns.
+RowScope 실험 결과로부터 보고서 품질의 그래프를 생성한다.
+처리된 요약 통계를 읽어, 다양한 워크로드 유형과 메모리 접근 패턴에 따른
+row buffer locality 동작을 보여주는 여러 시각화 그래프를 생성한다.
 
-Input: results/processed/summary.csv
-Output: results/figures/*.png (at 150 DPI)
+입력: results/processed/summary.csv
+출력: results/figures/*.png (150 DPI)
 
-Usage:
+사용법:
     python visualization/plot_results.py
     python visualization/plot_results.py --summary=/path/to/summary.csv --output-dir=/path/to/figures/
 """
@@ -31,7 +30,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, LogFormatterSciNotation
 from matplotlib.patches import Rectangle
 
-# Try to import seaborn for enhanced styling
+# 향상된 스타일링을 위해 seaborn 임포트 시도
 try:
     import seaborn as sns
     SEABORN_AVAILABLE = True
@@ -39,7 +38,7 @@ except ImportError:
     SEABORN_AVAILABLE = False
     warnings.warn("seaborn not available; using matplotlib defaults")
 
-# Try to import scipy for trend line fitting
+# 추세선 피팅을 위해 scipy 임포트 시도
 try:
     from scipy import stats
     SCIPY_AVAILABLE = True
@@ -49,13 +48,13 @@ except ImportError:
 
 
 # ============================================================================
-# Configuration
+# 설정 (Configuration)
 # ============================================================================
 
 DEFAULT_DATA_PATH = Path('results/processed/summary.csv')
 DEFAULT_FIGURES_DIR = Path('results/figures')
 
-# Global style configuration
+# 전역 스타일 설정
 STYLE_CONFIG = {
     'font.family': 'DejaVu Sans',
     'font.size': 11,
@@ -74,7 +73,7 @@ STYLE_CONFIG = {
     'axes.spines.bottom': True,
 }
 
-# Colorblind-friendly palette
+# 색맹 친화적 팔레트
 COLORS = {
     'blue': '#0072B2',
     'orange': '#E69F00',
@@ -94,11 +93,11 @@ WORKLOAD_COLORS = {
 
 
 # ============================================================================
-# Setup and Utilities
+# 초기 설정 및 유틸리티
 # ============================================================================
 
 def setup_style():
-    """Apply global matplotlib style configuration."""
+    """전역 matplotlib 스타일 설정을 적용한다."""
     plt.rcParams.update(STYLE_CONFIG)
     if SEABORN_AVAILABLE:
         sns.set_palette("husl")
@@ -106,16 +105,16 @@ def setup_style():
 
 def load_data(data_path: Path) -> pd.DataFrame:
     """
-    Load and validate experimental data from CSV.
+    CSV 파일에서 실험 데이터를 불러오고 검증한다.
 
     Args:
-        data_path: Path to summary.csv
+        data_path: summary.csv 경로
 
     Returns:
-        DataFrame with experimental results
+        실험 결과가 담긴 DataFrame
 
     Raises:
-        FileNotFoundError: If CSV does not exist
+        FileNotFoundError: CSV 파일이 존재하지 않는 경우
     """
     if not data_path.exists():
         raise FileNotFoundError(
@@ -132,8 +131,8 @@ def load_data(data_path: Path) -> pd.DataFrame:
 
 def validate_columns(df: pd.DataFrame) -> dict:
     """
-    Validate and map expected column names to actual column names.
-    Returns a dict of available metrics.
+    기대하는 컬럼 이름을 실제 컬럼 이름으로 매핑하여 검증한다.
+    사용 가능한 지표(metric)의 dict를 반환한다.
     """
     expected = {
         'benchmark': 'benchmark',
@@ -151,7 +150,7 @@ def validate_columns(df: pd.DataFrame) -> dict:
         if col in df.columns:
             available[key] = col
         else:
-            # Try alternative names
+            # 대체 컬럼명 시도
             alternatives = {
                 'hit_rate': ['hit_rate', 'row_hit_rate'],
                 'miss_rate': ['miss_rate', 'row_miss_rate'],
@@ -169,12 +168,12 @@ def validate_columns(df: pd.DataFrame) -> dict:
 
 
 def ensure_output_dir(output_dir: Path) -> None:
-    """Create output directory if it doesn't exist."""
+    """출력 디렉터리가 없으면 생성한다."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
 
 def save_figure(fig: plt.Figure, output_dir: Path, filename: str, dpi: int = 150) -> Path:
-    """Save figure with consistent settings."""
+    """일관된 설정으로 그래프를 저장한다."""
     filepath = output_dir / filename
     fig.savefig(filepath, dpi=dpi, bbox_inches='tight')
     plt.close(fig)
@@ -184,14 +183,14 @@ def save_figure(fig: plt.Figure, output_dir: Path, filename: str, dpi: int = 150
 
 
 # ============================================================================
-# Figure Generation Functions
+# 그래프 생성 함수
 # ============================================================================
 
 def plot_workload_comparison(df: pd.DataFrame, output_dir: Path, columns: dict) -> bool:
     """
-    Figure 1: Grouped bar chart comparing row hit rates across workload types.
-    X-axis: workload type (sequential, random, stride, working_set)
-    Y-axis: hit_rate (0.0 to 1.0)
+    그래프 1: 워크로드 유형별 row hit rate를 비교하는 그룹 막대 그래프.
+    X축: 워크로드 유형 (sequential, random, stride, working_set)
+    Y축: hit_rate (0.0 ~ 1.0)
     """
     try:
         if 'hit_rate' not in columns:
@@ -200,7 +199,7 @@ def plot_workload_comparison(df: pd.DataFrame, output_dir: Path, columns: dict) 
 
         hit_col = columns['hit_rate']
 
-        # Calculate mean hit rate per workload
+        # 워크로드별 평균 hit rate 계산
         workload_hits = {}
         for workload in ['sequential', 'random', 'stride', 'working_set']:
             subset = df[df['benchmark'] == workload][hit_col]
@@ -211,24 +210,24 @@ def plot_workload_comparison(df: pd.DataFrame, output_dir: Path, columns: dict) 
             print("[RowScope Viz] SKIP workload_comparison.png: no workload data found")
             return False
 
-        # Prepare data for plotting
+        # 그래프 데이터 준비
         workloads = list(workload_hits.keys())
         values = list(workload_hits.values())
         display_labels = [w.replace('_', '\n').title() for w in workloads]
         colors = [WORKLOAD_COLORS.get(w, '#999999') for w in workloads]
 
-        # Create figure
+        # 그래프 생성
         fig, ax = plt.subplots(figsize=(10, 6))
         bars = ax.bar(display_labels, values, color=colors, width=0.6,
                       edgecolor='white', linewidth=1.5, alpha=0.85)
 
-        # Add value labels on bars
+        # 막대 위에 수치 레이블 추가
         for bar, val in zip(bars, values):
             height = bar.get_height()
             ax.text(bar.get_x() + bar.get_width()/2, height + 0.02,
                    f'{val:.1%}', ha='center', va='bottom', fontweight='bold', fontsize=11)
 
-        # Styling
+        # 스타일 적용
         ax.set_ylabel('Row Hit Rate', fontsize=12, fontweight='bold')
         ax.set_title('Row Buffer Hit Rate by Access Pattern', fontsize=14, fontweight='bold')
         ax.set_ylim(0, 1.15)
@@ -247,9 +246,9 @@ def plot_workload_comparison(df: pd.DataFrame, output_dir: Path, columns: dict) 
 
 def plot_stride_vs_hit_rate(df: pd.DataFrame, output_dir: Path, columns: dict) -> bool:
     """
-    Figure 2: Line plot showing hit rate and conflict rate vs stride size.
-    X-axis: stride (log scale)
-    Y-axis (left): hit_rate; (right): conflict_rate
+    그래프 2: 스트라이드 크기에 따른 hit rate와 conflict rate를 보여주는 선 그래프.
+    X축: stride (로그 스케일)
+    Y축 (왼쪽): hit_rate; (오른쪽): conflict_rate
     """
     try:
         required = ['stride', 'hit_rate', 'conflict_rate']
@@ -262,7 +261,7 @@ def plot_stride_vs_hit_rate(df: pd.DataFrame, output_dir: Path, columns: dict) -
         hit_col = columns['hit_rate']
         conflict_col = columns['conflict_rate']
 
-        # Filter stride benchmark and sort by stride
+        # stride 벤치마크 필터링 후 stride 기준 정렬
         stride_df = df[df['benchmark'] == 'stride'].copy()
         if len(stride_df) == 0:
             print("[RowScope Viz] SKIP stride_vs_hit_rate.png: no stride benchmark data")
@@ -270,10 +269,10 @@ def plot_stride_vs_hit_rate(df: pd.DataFrame, output_dir: Path, columns: dict) -
 
         stride_df = stride_df.sort_values(stride_col)
 
-        # Create dual-axis figure
+        # 이중 축 그래프 생성
         fig, ax1 = plt.subplots(figsize=(11, 6))
 
-        # Primary axis: hit rate
+        # 주 축: hit rate
         line1 = ax1.plot(stride_df[stride_col], stride_df[hit_col] * 100,
                         color=COLORS['blue'], marker='o', linewidth=2.5, markersize=8,
                         label='Hit Rate', zorder=3)
@@ -285,7 +284,7 @@ def plot_stride_vs_hit_rate(df: pd.DataFrame, output_dir: Path, columns: dict) -
         ax1.set_xscale('log', base=2)
         ax1.set_ylim(0, 105)
 
-        # Secondary axis: conflict rate
+        # 보조 축: conflict rate
         ax2 = ax1.twinx()
         line2 = ax2.plot(stride_df[stride_col], stride_df[conflict_col] * 100,
                         color=COLORS['red'], marker='s', linewidth=2.5, markersize=8,
@@ -294,7 +293,7 @@ def plot_stride_vs_hit_rate(df: pd.DataFrame, output_dir: Path, columns: dict) -
         ax2.tick_params(axis='y', labelcolor=COLORS['red'])
         ax2.set_ylim(0, 105)
 
-        # Annotations: hit rate collapse point
+        # 어노테이션: hit rate 급락 지점
         hit_rates = stride_df[hit_col].values
         if (hit_rates > 0.5).any() and (hit_rates <= 0.5).any():
             collapse_idx = np.where(hit_rates <= 0.5)[0][0]
@@ -307,7 +306,7 @@ def plot_stride_vs_hit_rate(df: pd.DataFrame, output_dir: Path, columns: dict) -
                         fontsize=10, color=COLORS['orange'], fontweight='bold',
                         arrowprops=dict(arrowstyle='->', color=COLORS['orange'], lw=1.5))
 
-        # Annotation: row size boundary
+        # 어노테이션: row 크기 경계
         row_boundary = 256
         if stride_df[stride_col].min() <= row_boundary <= stride_df[stride_col].max():
             ax1.axvline(row_boundary, color=COLORS['green'], linestyle=':',
@@ -317,7 +316,7 @@ def plot_stride_vs_hit_rate(df: pd.DataFrame, output_dir: Path, columns: dict) -
                         fontsize=10, color=COLORS['green'], fontweight='bold',
                         arrowprops=dict(arrowstyle='->', color=COLORS['green'], lw=1.5))
 
-        # Title and legend
+        # 제목 및 범례
         ax1.set_title('Effect of Stride Size on Row Buffer Locality',
                      fontsize=14, fontweight='bold')
         lines = line1 + line2
@@ -337,9 +336,9 @@ def plot_stride_vs_hit_rate(df: pd.DataFrame, output_dir: Path, columns: dict) -
 
 def plot_stride_vs_time(df: pd.DataFrame, output_dir: Path, columns: dict) -> bool:
     """
-    Figure 3: Dual-axis plot of execution time and hit rate vs stride.
-    X-axis: stride (log scale)
-    Y-axis (left): execution_time_ms; (right): hit_rate
+    그래프 3: 스트라이드에 따른 실행 시간과 hit rate를 보여주는 이중 축 그래프.
+    X축: stride (로그 스케일)
+    Y축 (왼쪽): execution_time_ms; (오른쪽): hit_rate
     """
     try:
         required = ['stride', 'hit_rate']
@@ -352,7 +351,7 @@ def plot_stride_vs_time(df: pd.DataFrame, output_dir: Path, columns: dict) -> bo
         hit_col = columns['hit_rate']
         time_col = columns.get('exec_time', None)
 
-        # Filter stride data
+        # stride 데이터 필터링
         stride_df = df[df['benchmark'] == 'stride'].copy()
         if len(stride_df) == 0:
             print("[RowScope Viz] SKIP stride_vs_time.png: no stride data")
@@ -360,17 +359,17 @@ def plot_stride_vs_time(df: pd.DataFrame, output_dir: Path, columns: dict) -> bo
 
         stride_df = stride_df.sort_values(stride_col)
 
-        # If exec_time not available, generate synthetic data
+        # exec_time이 없으면 합성 데이터 생성
         if time_col is None or stride_df[time_col].isna().all():
             print("[RowScope Viz] exec_time not found; generating synthetic time data")
             base_time = 100
             stride_df['exec_time_ms'] = base_time / (stride_df[hit_col] + 0.1)
             time_col = 'exec_time_ms'
 
-        # Create dual-axis figure
+        # 이중 축 그래프 생성
         fig, ax1 = plt.subplots(figsize=(11, 6))
 
-        # Primary axis: execution time
+        # 주 축: 실행 시간
         line1 = ax1.plot(stride_df[stride_col], stride_df[time_col],
                         color=COLORS['red'], marker='o', linewidth=2.5, markersize=8,
                         label='Execution Time', zorder=3)
@@ -379,7 +378,7 @@ def plot_stride_vs_time(df: pd.DataFrame, output_dir: Path, columns: dict) -> bo
         ax1.tick_params(axis='y', labelcolor=COLORS['red'])
         ax1.set_xscale('log', base=2)
 
-        # Secondary axis: hit rate
+        # 보조 축: hit rate
         ax2 = ax1.twinx()
         line2 = ax2.plot(stride_df[stride_col], stride_df[hit_col] * 100,
                         color=COLORS['blue'], marker='s', linewidth=2.5, markersize=8,
@@ -388,7 +387,7 @@ def plot_stride_vs_time(df: pd.DataFrame, output_dir: Path, columns: dict) -> bo
         ax2.tick_params(axis='y', labelcolor=COLORS['blue'])
         ax2.set_ylim(0, 105)
 
-        # Title and legend
+        # 제목 및 범례
         ax1.set_title('Execution Time and Row Hit Rate vs Stride Size',
                      fontsize=14, fontweight='bold')
         lines = line1 + line2
@@ -408,9 +407,9 @@ def plot_stride_vs_time(df: pd.DataFrame, output_dir: Path, columns: dict) -> bo
 
 def plot_working_set_sweep(df: pd.DataFrame, output_dir: Path, columns: dict) -> bool:
     """
-    Figure 4: Working set size effect on row buffer behavior.
-    X-axis: array_size_mb (log scale)
-    Y-axis (left): hit_rate; (right): conflict_rate
+    그래프 4: 워킹 셋 크기에 따른 row buffer 동작.
+    X축: array_size_mb (로그 스케일)
+    Y축 (왼쪽): hit_rate; (오른쪽): conflict_rate
     """
     try:
         required = ['array_size_mb', 'hit_rate', 'conflict_rate']
@@ -423,7 +422,7 @@ def plot_working_set_sweep(df: pd.DataFrame, output_dir: Path, columns: dict) ->
         hit_col = columns['hit_rate']
         conflict_col = columns['conflict_rate']
 
-        # Filter working_set and sequential benchmarks
+        # working_set 및 sequential 벤치마크 필터링
         ws_df = df[df['benchmark'] == 'working_set'].copy()
         seq_df = df[df['benchmark'] == 'sequential'].copy()
 
@@ -434,10 +433,10 @@ def plot_working_set_sweep(df: pd.DataFrame, output_dir: Path, columns: dict) ->
         ws_df = ws_df.sort_values(size_col)
         seq_df = seq_df.sort_values(size_col)
 
-        # Create dual-axis figure
+        # 이중 축 그래프 생성
         fig, ax1 = plt.subplots(figsize=(11, 6))
 
-        # Primary axis: hit rate
+        # 주 축: hit rate
         line1 = ax1.plot(ws_df[size_col], ws_df[hit_col] * 100,
                         color=COLORS['blue'], marker='o', linewidth=2.5, markersize=8,
                         label='Working Set Hit Rate', zorder=3)
@@ -451,7 +450,7 @@ def plot_working_set_sweep(df: pd.DataFrame, output_dir: Path, columns: dict) ->
         ax1.tick_params(axis='y', labelcolor=COLORS['blue'])
         ax1.set_xscale('log')
 
-        # Secondary axis: conflict rate
+        # 보조 축: conflict rate
         ax2 = ax1.twinx()
         line2 = ax2.plot(ws_df[size_col], ws_df[conflict_col] * 100,
                         color=COLORS['red'], marker='s', linewidth=2.5, markersize=8,
@@ -459,7 +458,7 @@ def plot_working_set_sweep(df: pd.DataFrame, output_dir: Path, columns: dict) ->
         ax2.set_ylabel('Row Conflict Rate (%)', fontsize=12, fontweight='bold', color=COLORS['red'])
         ax2.tick_params(axis='y', labelcolor=COLORS['red'])
 
-        # Cache size annotations
+        # 캐시 크기 어노테이션
         cache_boundaries = {
             'L1 (32KB)': 0.032,
             'L2 (256KB)': 0.256,
@@ -472,7 +471,7 @@ def plot_working_set_sweep(df: pd.DataFrame, output_dir: Path, columns: dict) ->
                 ax1.text(size_mb, ax1.get_ylim()[1] * 0.99, label,
                         fontsize=9, color='gray', rotation=90, va='top', ha='right')
 
-        # Title and legend
+        # 제목 및 범례
         ax1.set_title('Row Hit Rate vs Working Set Size',
                      fontsize=14, fontweight='bold')
         lines = line1 + line2
@@ -492,8 +491,7 @@ def plot_working_set_sweep(df: pd.DataFrame, output_dir: Path, columns: dict) ->
 
 def plot_sequential_vs_random(df: pd.DataFrame, output_dir: Path, columns: dict) -> bool:
     """
-    Figure 5: Side-by-side comparison of sequential vs random access patterns.
-    Pie charts showing hits/misses/conflicts.
+    그래프 5: 순차 접근과 무작위 접근 패턴을 나란히 비교하는 파이 차트.
     """
     try:
         required = ['hit_rate', 'miss_rate', 'conflict_rate']
@@ -506,7 +504,7 @@ def plot_sequential_vs_random(df: pd.DataFrame, output_dir: Path, columns: dict)
         miss_col = columns['miss_rate']
         conflict_col = columns['conflict_rate']
 
-        # Get data for sequential and random
+        # sequential 및 random 데이터 조회
         seq_data = df[df['benchmark'] == 'sequential']
         rand_data = df[df['benchmark'] == 'random']
 
@@ -517,10 +515,10 @@ def plot_sequential_vs_random(df: pd.DataFrame, output_dir: Path, columns: dict)
         seq_row = seq_data.iloc[0]
         rand_row = rand_data.iloc[0]
 
-        # Create figure with 2 subplots
+        # 서브플롯 2개로 그래프 생성
         fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 
-        # Prepare data
+        # 데이터 준비
         benchmarks = [seq_row, rand_row]
         titles = ['Sequential Access', 'Random Access']
 
@@ -540,7 +538,7 @@ def plot_sequential_vs_random(df: pd.DataFrame, output_dir: Path, columns: dict)
                 autopct='%1.0f%%', textprops={'fontsize': 10}
             )
 
-            # Customize text
+            # 텍스트 스타일 조정
             for autotext in autotexts:
                 autotext.set_color('white')
                 autotext.set_fontweight('bold')
@@ -562,10 +560,10 @@ def plot_sequential_vs_random(df: pd.DataFrame, output_dir: Path, columns: dict)
 
 def plot_locality_heatmap(df: pd.DataFrame, output_dir: Path, columns: dict) -> bool:
     """
-    Figure 6: Heatmap of hit rates across benchmarks and strides.
-    X-axis: stride size
-    Y-axis: benchmark type
-    Color: hit_rate
+    그래프 6: 벤치마크와 stride에 따른 hit rate 히트맵.
+    X축: stride 크기
+    Y축: 벤치마크 유형
+    색상: hit_rate
     """
     try:
         required = ['stride', 'hit_rate']
@@ -577,7 +575,7 @@ def plot_locality_heatmap(df: pd.DataFrame, output_dir: Path, columns: dict) -> 
         stride_col = columns['stride']
         hit_col = columns['hit_rate']
 
-        # Create pivot table: benchmarks x strides
+        # 피벗 테이블 생성: 벤치마크 × stride
         stride_data = df[df['benchmark'] == 'stride'].pivot_table(
             values=hit_col, index='benchmark', columns=stride_col, aggfunc='mean'
         )
@@ -593,20 +591,20 @@ def plot_locality_heatmap(df: pd.DataFrame, output_dir: Path, columns: dict) -> 
             print("[RowScope Viz] SKIP locality_heatmap.png: no pivot data")
             return False
 
-        # Create heatmap
+        # 히트맵 생성
         fig, ax = plt.subplots(figsize=(13, 5))
 
-        # Use imshow for heatmap
+        # imshow를 사용한 히트맵 렌더링
         im = ax.imshow(pivot.values, aspect='auto', cmap='RdYlGn', vmin=0, vmax=1,
                       interpolation='nearest')
 
-        # Set ticks and labels
+        # 눈금 및 레이블 설정
         ax.set_xticks(np.arange(len(pivot.columns)))
         ax.set_yticks(np.arange(len(pivot.index)))
         ax.set_xticklabels(pivot.columns, rotation=45, ha='right')
         ax.set_yticklabels(pivot.index)
 
-        # Add value annotations if matrix is small
+        # 행렬이 작으면 수치 어노테이션 추가
         if pivot.size <= 32:
             for i in range(len(pivot.index)):
                 for j in range(len(pivot.columns)):
@@ -616,12 +614,12 @@ def plot_locality_heatmap(df: pd.DataFrame, output_dir: Path, columns: dict) -> 
                                      ha='center', va='center', color='black',
                                      fontsize=9, fontweight='bold')
 
-        # Labels and title
+        # 레이블 및 제목
         ax.set_xlabel('Stride Size (elements)', fontsize=12, fontweight='bold')
         ax.set_ylabel('Benchmark Type', fontsize=12, fontweight='bold')
         ax.set_title('Row Buffer Hit Rate Heatmap', fontsize=14, fontweight='bold')
 
-        # Colorbar
+        # 컬러바
         cbar = plt.colorbar(im, ax=ax, label='Hit Rate')
         cbar.set_label('Hit Rate', fontsize=11, fontweight='bold')
 
@@ -636,7 +634,7 @@ def plot_locality_heatmap(df: pd.DataFrame, output_dir: Path, columns: dict) -> 
 
 def plot_hit_rate_vs_time_scatter(df: pd.DataFrame, output_dir: Path, columns: dict) -> bool:
     """
-    Figure 7 (Bonus): Scatter plot of hit rate vs execution time with trend line.
+    그래프 7 (보너스): hit rate 대 실행 시간의 산점도와 추세선.
     """
     try:
         required = ['hit_rate']
@@ -647,7 +645,7 @@ def plot_hit_rate_vs_time_scatter(df: pd.DataFrame, output_dir: Path, columns: d
         hit_col = columns['hit_rate']
         time_col = columns.get('exec_time', None)
 
-        # Generate synthetic time data if not available
+        # exec_time이 없으면 합성 데이터 생성
         if time_col is None:
             df_plot = df.copy()
             df_plot['exec_time_ms'] = 1000.0 / (df_plot[hit_col] + 0.1)
@@ -655,17 +653,17 @@ def plot_hit_rate_vs_time_scatter(df: pd.DataFrame, output_dir: Path, columns: d
         else:
             df_plot = df[df[time_col].notna()].copy()
 
-        # Filter out NaN values
+        # NaN 값 필터링
         df_plot = df_plot[df_plot[hit_col].notna()]
 
         if len(df_plot) < 5:
             print("[RowScope Viz] SKIP hit_rate_vs_time_scatter.png: insufficient data points")
             return False
 
-        # Create figure
+        # 그래프 생성
         fig, ax = plt.subplots(figsize=(10, 6))
 
-        # Plot scatter by workload type
+        # 워크로드 유형별 산점도
         for workload in df_plot['benchmark'].unique():
             subset = df_plot[df_plot['benchmark'] == workload]
             color = WORKLOAD_COLORS.get(workload, '#999999')
@@ -673,11 +671,11 @@ def plot_hit_rate_vs_time_scatter(df: pd.DataFrame, output_dir: Path, columns: d
                       label=workload.replace('_', ' ').title(),
                       color=color, s=100, alpha=0.7, edgecolors='black', linewidth=0.5)
 
-        # Fit trend line
+        # 추세선 피팅
         hit_vals = df_plot[hit_col].values
         time_vals = df_plot[time_col].values
 
-        # Remove inf/nan
+        # inf/nan 제거
         valid_mask = np.isfinite(hit_vals) & np.isfinite(time_vals)
         hit_vals = hit_vals[valid_mask]
         time_vals = time_vals[valid_mask]
@@ -687,27 +685,27 @@ def plot_hit_rate_vs_time_scatter(df: pd.DataFrame, output_dir: Path, columns: d
                 slope, intercept, r_value, p_value, std_err = stats.linregress(hit_vals, time_vals)
                 r_squared = r_value ** 2
             else:
-                # Use numpy polyfit
+                # numpy polyfit 사용
                 coeffs = np.polyfit(hit_vals, time_vals, 1)
                 slope, intercept = coeffs
-                # Compute R-squared manually
+                # R² 수동 계산
                 y_pred = np.polyval(coeffs, hit_vals)
                 ss_res = np.sum((time_vals - y_pred) ** 2)
                 ss_tot = np.sum((time_vals - np.mean(time_vals)) ** 2)
                 r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
 
-            # Plot trend line
+            # 추세선 그리기
             hit_range = np.linspace(hit_vals.min(), hit_vals.max(), 100)
             time_pred = slope * hit_range + intercept
             ax.plot(hit_range, time_pred, 'k--', linewidth=2, label=f'Trend (R²={r_squared:.3f})',
                    zorder=3)
 
-            # Add R² annotation
+            # R² 어노테이션 추가
             ax.text(0.05, 0.95, f'R² = {r_squared:.4f}', transform=ax.transAxes,
                    fontsize=11, fontweight='bold', verticalalignment='top',
                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
 
-        # Labels and title
+        # 레이블 및 제목
         ax.set_xlabel('Row Hit Rate', fontsize=12, fontweight='bold')
         ax.set_ylabel('Execution Time (ms)', fontsize=12, fontweight='bold')
         ax.set_title('Correlation: Row Hit Rate vs Execution Time',
@@ -726,11 +724,11 @@ def plot_hit_rate_vs_time_scatter(df: pd.DataFrame, output_dir: Path, columns: d
 
 
 # ============================================================================
-# Main Execution
+# 메인 실행
 # ============================================================================
 
 def main():
-    """Main execution function."""
+    """메인 실행 함수."""
     parser = argparse.ArgumentParser(
         description='RowScope Visualization: Generate publication-quality figures from experimental results'
     )
@@ -748,50 +746,50 @@ def main():
     print("RowScope Visualization Engine")
     print("=" * 70)
 
-    # Setup
+    # 초기 설정
     setup_style()
     ensure_output_dir(args.output_dir)
 
-    # Load data
+    # 데이터 불러오기
     try:
         df = load_data(args.summary)
     except FileNotFoundError as e:
         print(f"[RowScope Viz] FATAL: {e}")
         sys.exit(1)
 
-    # Validate columns
+    # 컬럼 검증
     columns = validate_columns(df)
     print(f"[RowScope Viz] Available metrics: {list(columns.keys())}")
 
-    # Generate figures
+    # 그래프 생성
     print("\n" + "=" * 70)
     print("Generating Figures...")
     print("=" * 70 + "\n")
 
     results = {}
 
-    # Figure 1: Workload comparison
+    # 그래프 1: 워크로드 비교
     results['workload_comparison.png'] = plot_workload_comparison(df, args.output_dir, columns)
 
-    # Figure 2: Stride vs hit rate
+    # 그래프 2: Stride 대 hit rate
     results['stride_vs_hit_rate.png'] = plot_stride_vs_hit_rate(df, args.output_dir, columns)
 
-    # Figure 3: Stride vs execution time
+    # 그래프 3: Stride 대 실행 시간
     results['stride_vs_time.png'] = plot_stride_vs_time(df, args.output_dir, columns)
 
-    # Figure 4: Working set sweep
+    # 그래프 4: 워킹 셋 스윕
     results['working_set_sweep.png'] = plot_working_set_sweep(df, args.output_dir, columns)
 
-    # Figure 5: Sequential vs random
+    # 그래프 5: 순차 대 무작위
     results['sequential_vs_random.png'] = plot_sequential_vs_random(df, args.output_dir, columns)
 
-    # Figure 6: Locality heatmap
+    # 그래프 6: Locality 히트맵
     results['locality_heatmap.png'] = plot_locality_heatmap(df, args.output_dir, columns)
 
-    # Figure 7: Hit rate vs time scatter
+    # 그래프 7: Hit rate 대 시간 산점도
     results['hit_rate_vs_time_scatter.png'] = plot_hit_rate_vs_time_scatter(df, args.output_dir, columns)
 
-    # Summary
+    # 요약
     print("\n" + "=" * 70)
     print("RowScope Visualization Complete")
     print("=" * 70)

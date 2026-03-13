@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-RowScope Report Generator
-=========================
-Project: RowScope — DRAM Row Buffer Locality Analyzer
-File:    report/generate_report.py
-Purpose: Read results/processed/summary.csv and produce report/final_report.md
-         by rendering report/report_template.md with experimental data.
+RowScope 보고서 생성기
+======================
+프로젝트: RowScope — DRAM Row Buffer Locality Analyzer
+파일:    report/generate_report.py
+목적: results/processed/summary.csv를 읽어 실험 데이터로
+     report/report_template.md를 렌더링하고 report/final_report.md를 생성한다.
 
-The template uses {{ placeholder }} tokens. This script substitutes each token
-with computed values (formatted hit rates, tables, system info) and writes the
-rendered Markdown to the output path.
+템플릿은 {{ placeholder }} 토큰을 사용한다. 이 스크립트는 각 토큰을
+계산된 값(포맷된 hit rate, 테이블, 시스템 정보 등)으로 치환하고
+렌더링된 Markdown을 출력 경로에 저장한다.
 
-CLI usage:
+CLI 사용법:
     python report/generate_report.py
     python report/generate_report.py --summary results/processed/summary.csv
     python report/generate_report.py --output report/final_report.md
@@ -28,16 +28,15 @@ from pathlib import Path
 
 
 # ---------------------------------------------------------------------------
-# System information
+# 시스템 정보
 # ---------------------------------------------------------------------------
 
 def get_system_info() -> dict:
     """
-    Collect basic system information for the report header.
+    보고서 헤더에 사용할 기본 시스템 정보를 수집한다.
 
-    Returns a dict with keys: os, cpu, memory, python_version.
-    The 'memory' field requires psutil; falls back to a placeholder string
-    if psutil is not installed.
+    os, cpu, memory, python_version 키를 가진 dict를 반환한다.
+    'memory' 필드는 psutil이 필요하며, 설치되지 않은 경우 플레이스홀더 문자열로 대체된다.
     """
     try:
         import psutil
@@ -55,21 +54,21 @@ def get_system_info() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Template loading and rendering
+# 템플릿 로드 및 렌더링
 # ---------------------------------------------------------------------------
 
 def load_template(template_path: str) -> str:
     """
-    Read the Markdown template file.
+    Markdown 템플릿 파일을 읽어 반환한다.
 
     Args:
-        template_path: Path to the .md template file.
+        template_path: .md 템플릿 파일 경로.
 
     Returns:
-        Template string with {{ placeholder }} tokens.
+        {{ placeholder }} 토큰을 포함한 템플릿 문자열.
 
     Raises:
-        SystemExit: If the file does not exist.
+        SystemExit: 파일이 존재하지 않는 경우.
     """
     path = Path(template_path)
     if not path.exists():
@@ -80,17 +79,17 @@ def load_template(template_path: str) -> str:
 
 def render_template(template: str, context: dict) -> str:
     """
-    Substitute all {{ key }} tokens in the template with values from context.
+    템플릿 내의 모든 {{ key }} 토큰을 context의 값으로 치환한다.
 
-    Uses simple string replacement. Tokens not present in context are left
-    unchanged (no error is raised for unrecognized tokens).
+    단순 문자열 치환을 사용한다. context에 없는 토큰은 그대로 유지되며
+    (오류를 발생시키지 않음).
 
     Args:
-        template: Template string containing {{ key }} tokens.
-        context:  Dict mapping token names to their string replacements.
+        template: {{ key }} 토큰을 포함한 템플릿 문자열.
+        context:  토큰 이름을 문자열 치환값으로 매핑하는 dict.
 
     Returns:
-        Rendered Markdown string with all known tokens substituted.
+        알려진 모든 토큰이 치환된 렌더링된 Markdown 문자열.
     """
     for key, value in context.items():
         token = "{{ " + key + " }}"
@@ -99,21 +98,21 @@ def render_template(template: str, context: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Data loading
+# 데이터 로드
 # ---------------------------------------------------------------------------
 
 def load_summary(summary_csv: str):
     """
-    Load summary.csv into a pandas DataFrame.
+    summary.csv를 pandas DataFrame으로 불러온다.
 
     Args:
-        summary_csv: Path to results/processed/summary.csv.
+        summary_csv: results/processed/summary.csv 경로.
 
     Returns:
-        pandas DataFrame with all result rows.
+        모든 결과 행이 담긴 pandas DataFrame.
 
     Raises:
-        SystemExit: If the file does not exist or pandas is not available.
+        SystemExit: 파일이 없거나 pandas를 사용할 수 없는 경우.
     """
     try:
         import pandas as pd
@@ -129,7 +128,7 @@ def load_summary(summary_csv: str):
 
     df = pd.read_csv(path)
 
-    # Validate required columns are present.
+    # 필수 컬럼 존재 여부 검증
     required_cols = {
         "benchmark", "array_size_mb", "stride",
         "row_hit_rate", "row_miss_rate", "row_conflict_rate",
@@ -145,27 +144,27 @@ def load_summary(summary_csv: str):
 
 
 # ---------------------------------------------------------------------------
-# Markdown table builders
+# Markdown 테이블 빌더
 # ---------------------------------------------------------------------------
 
 def build_workload_comparison_table(df) -> str:
     """
-    Build a Markdown table of mean hit/miss/conflict rates and locality score,
-    grouped by benchmark type.
+    벤치마크 유형별로 그룹화한 평균 hit/miss/conflict rate와
+    locality score의 Markdown 테이블을 생성한다.
 
-    Excludes small test-run rows (those not from the four main benchmark types)
-    and computes means over all parameter variations within each type.
+    4가지 주요 벤치마크 유형 외의 행은 제외하고,
+    각 유형 내 모든 파라미터 변형에 대한 평균을 계산한다.
 
     Args:
-        df: pandas DataFrame loaded from summary.csv.
+        df: summary.csv에서 불러온 pandas DataFrame.
 
     Returns:
-        Formatted Markdown table string.
+        포맷된 Markdown 테이블 문자열.
     """
-    # Canonical benchmark order for display
+    # 표시 순서 기준 벤치마크 순서
     benchmark_order = ["sequential", "random", "stride", "working_set"]
 
-    # Filter to only the four main benchmark types
+    # 4가지 주요 벤치마크 유형만 필터링
     df_main = df[df["benchmark"].isin(benchmark_order)].copy()
 
     rows = []
@@ -193,16 +192,16 @@ def build_workload_comparison_table(df) -> str:
 
 def build_stride_table(df) -> str:
     """
-    Build a Markdown table of per-stride hit/conflict rates for the stride benchmark.
+    stride 벤치마크의 stride별 hit/conflict rate를 보여주는 Markdown 테이블을 생성한다.
 
-    Rows are sorted by stride value (ascending). The byte step column is derived
-    from stride × element_size (4 bytes per int, as used in all benchmarks).
+    stride 값 오름차순으로 정렬한다. 바이트 단계 컬럼은
+    stride × element_size (모든 벤치마크에서 int 4바이트)로 계산한다.
 
     Args:
-        df: pandas DataFrame loaded from summary.csv.
+        df: summary.csv에서 불러온 pandas DataFrame.
 
     Returns:
-        Formatted Markdown table string.
+        포맷된 Markdown 테이블 문자열.
     """
     stride_df = df[df["benchmark"] == "stride"].copy()
     if stride_df.empty:
@@ -216,7 +215,7 @@ def build_stride_table(df) -> str:
 
     for _, row in stride_df.iterrows():
         stride_int = int(row["stride"])
-        # stride_bytes is the address step; element_size = 4 bytes
+        # stride_bytes는 주소 증가량; element_size = 4바이트
         byte_step = stride_int * 4
         hit   = row["row_hit_rate"]
         conf  = row["row_conflict_rate"]
@@ -234,15 +233,15 @@ def build_stride_table(df) -> str:
 
 def build_working_set_table(df) -> str:
     """
-    Build a Markdown table of per-size locality metrics for the working set sweep.
+    워킹 셋 스윕의 크기별 locality 지표를 보여주는 Markdown 테이블을 생성한다.
 
-    Rows are sorted by array size (ascending).
+    배열 크기 오름차순으로 정렬한다.
 
     Args:
-        df: pandas DataFrame loaded from summary.csv.
+        df: summary.csv에서 불러온 pandas DataFrame.
 
     Returns:
-        Formatted Markdown table string.
+        포맷된 Markdown 테이블 문자열.
     """
     ws_df = df[df["benchmark"] == "working_set"].copy()
     if ws_df.empty:
@@ -256,7 +255,7 @@ def build_working_set_table(df) -> str:
 
     for _, row in ws_df.iterrows():
         size_mb = row["array_size_mb"]
-        # Format as MB if >= 1, else as KB
+        # 1 이상이면 MB, 아니면 KB로 포맷
         if size_mb >= 1.0:
             size_str = f"{size_mb:.0f} MB"
         else:
@@ -277,15 +276,15 @@ def build_working_set_table(df) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Interpretation text builders
+# 해석 텍스트 빌더
 # ---------------------------------------------------------------------------
 
 def build_sequential_interpretation(df) -> str:
     """
-    Generate the interpretation paragraph for sequential benchmark results.
+    sequential 벤치마크 결과에 대한 해석 단락을 생성한다.
 
-    Pulls the measured mean hit rate from the DataFrame and embeds it in the
-    explanation of why sequential access has near-perfect locality.
+    DataFrame에서 측정된 평균 hit rate를 추출하여 순차 접근이
+    거의 완벽한 locality를 갖는 이유를 설명하는 문장에 삽입한다.
     """
     seq = df[df["benchmark"] == "sequential"]
     if seq.empty:
@@ -303,9 +302,9 @@ def build_sequential_interpretation(df) -> str:
 
 def build_random_interpretation(df) -> str:
     """
-    Generate the interpretation paragraph for random benchmark results.
+    random 벤치마크 결과에 대한 해석 단락을 생성한다.
 
-    Summarizes the hit-rate-vs-array-size trend and the physical reason for it.
+    hit rate 대 배열 크기 추세 및 그 물리적 원인을 요약한다.
     """
     rand = df[df["benchmark"] == "random"].sort_values("array_size_mb")
     if rand.empty:
@@ -328,15 +327,15 @@ def build_random_interpretation(df) -> str:
 
 def build_stride_interpretation(df) -> str:
     """
-    Generate the interpretation paragraph for stride benchmark results.
+    stride 벤치마크 결과에 대한 해석 단락을 생성한다.
 
-    Includes the theoretical formula and compares measured values at key strides.
+    이론적 공식과 주요 stride 값에서의 측정값을 비교한다.
     """
     stride_df = df[df["benchmark"] == "stride"].sort_values("stride")
     if stride_df.empty:
         return "(No stride benchmark data.)"
 
-    # Pull hit rates at specific strides for the narrative
+    # 서술용으로 특정 stride에서의 hit rate 추출
     def get_hit(s):
         row = stride_df[stride_df["stride"] == s]
         return row["row_hit_rate"].values[0] if not row.empty else None
@@ -378,9 +377,9 @@ def build_stride_interpretation(df) -> str:
 
 def build_working_set_interpretation(df) -> str:
     """
-    Generate the interpretation paragraph for working set sweep results.
+    워킹 셋 스윕 결과에 대한 해석 단락을 생성한다.
 
-    Notes the stable hit rate and explains the absence of a cache-size transition.
+    hit rate의 안정성을 언급하고 캐시 크기 전환 구간이 없는 이유를 설명한다.
     """
     ws_df = df[df["benchmark"] == "working_set"]
     if ws_df.empty:
@@ -403,10 +402,10 @@ def build_working_set_interpretation(df) -> str:
 
 def build_key_takeaways(df) -> str:
     """
-    Generate the key takeaways section as a formatted Markdown list.
+    핵심 시사점(key takeaways) 섹션을 포맷된 Markdown 목록으로 생성한다.
 
-    Values are derived from the DataFrame so the takeaways reflect actual
-    measured data rather than nominal expected values.
+    DataFrame에서 실제 측정 데이터를 도출하여 이론적 기대값이 아닌
+    실측 결과를 반영한다.
     """
     seq  = df[df["benchmark"] == "sequential"]
     rand = df[df["benchmark"] == "random"]
@@ -438,7 +437,7 @@ def build_key_takeaways(df) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Main report generator
+# 메인 보고서 생성기
 # ---------------------------------------------------------------------------
 
 def generate_report(
@@ -448,29 +447,29 @@ def generate_report(
     output_path:   str,
 ) -> None:
     """
-    Orchestrate report generation: load data, build context dict, render
-    template, write output file.
+    보고서 생성 과정을 조율한다: 데이터 로드, context dict 구성,
+    템플릿 렌더링, 출력 파일 저장.
 
     Args:
-        summary_csv:   Path to results/processed/summary.csv.
-        figures_dir:   Directory containing PNG figures (used in figure paths).
-        template_path: Path to report_template.md.
-        output_path:   Destination path for final_report.md.
+        summary_csv:   results/processed/summary.csv 경로.
+        figures_dir:   PNG 그래프가 있는 디렉터리 (그래프 경로 생성에 사용).
+        template_path: report_template.md 경로.
+        output_path:   final_report.md 저장 경로.
 
     Raises:
-        SystemExit: On missing input files, missing dependencies, or write errors.
+        SystemExit: 입력 파일 누락, 의존성 누락, 쓰기 오류 발생 시.
     """
-    # Step 1: Load input data
+    # 단계 1: 입력 데이터 로드
     print(f"[generate_report] Loading summary: {summary_csv}")
     df = load_summary(summary_csv)
 
     print(f"[generate_report] Loading template: {template_path}")
     template = load_template(template_path)
 
-    # Step 2: Collect system information
+    # 단계 2: 시스템 정보 수집
     sysinfo = get_system_info()
 
-    # Step 3: Build computed content for each template placeholder
+    # 단계 3: 각 템플릿 플레이스홀더에 들어갈 내용 생성
     workload_table   = build_workload_comparison_table(df)
     stride_table     = build_stride_table(df)
     working_set_table = build_working_set_table(df)
@@ -480,10 +479,10 @@ def generate_report(
     ws_interp        = build_working_set_interpretation(df)
     key_takeaways    = build_key_takeaways(df)
 
-    # Step 4: Assemble the context dict mapping placeholder names to values.
-    #         All values must be strings (or coercible via str()).
+    # 단계 4: 플레이스홀더 이름을 값으로 매핑하는 context dict 조립.
+    #         모든 값은 문자열이어야 한다 (str()로 변환 가능한 것도 허용).
     context = {
-        # Report metadata
+        # 보고서 메타데이터
         "generated_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "system_info":    f"{sysinfo['os']} | Python {sysinfo['python_version']}",
         "system_os":      sysinfo["os"],
@@ -491,12 +490,12 @@ def generate_report(
         "system_memory":  sysinfo["memory"],
         "python_version": sysinfo["python_version"],
 
-        # DRAM model parameters (as used in the actual experiments)
+        # DRAM 모델 파라미터 (실제 실험에 사용된 값)
         "dram_row_size":  "8192",
         "dram_num_banks": "8",
         "dram_scheme":    "bit-interleaved",
 
-        # Model description paragraph
+        # 모델 설명 단락
         "analysis_model_description": (
             "RowScope applies a parametric address decomposition model to translate "
             "virtual memory addresses into DRAM coordinates (bank, row, column). "
@@ -509,28 +508,28 @@ def generate_report(
             "derivation and parameter rationale."
         ),
 
-        # Result tables
+        # 결과 테이블
         "workload_comparison_table": workload_table,
         "stride_analysis_table":     stride_table,
         "working_set_table":         working_set_table,
 
-        # Figures directory (used in image paths in the template)
+        # 그래프 디렉터리 (템플릿 내 이미지 경로에 사용)
         "figures_dir": figures_dir,
 
-        # Interpretation paragraphs
+        # 해석 단락
         "sequential_interpretation":  seq_interp,
         "random_interpretation":      rand_interp,
         "stride_interpretation":      stride_interp,
         "workingset_interpretation":  ws_interp,
 
-        # Key takeaways section
+        # 핵심 시사점 섹션
         "key_takeaways": key_takeaways,
     }
 
-    # Step 5: Render the template by substituting all {{ key }} tokens
+    # 단계 5: 모든 {{ key }} 토큰을 치환하여 템플릿 렌더링
     rendered = render_template(template, context)
 
-    # Step 6: Write the rendered report to the output path
+    # 단계 6: 렌더링된 보고서를 출력 경로에 저장
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
 
@@ -545,7 +544,7 @@ def generate_report(
 
 
 # ---------------------------------------------------------------------------
-# CLI entry point
+# CLI 진입점
 # ---------------------------------------------------------------------------
 
 def _build_parser() -> argparse.ArgumentParser:

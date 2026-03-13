@@ -1,33 +1,33 @@
 """
-RowScope — DRAM Address Mapping Model
-======================================
-Project: RowScope — DRAM Row Buffer Locality Analyzer
-File:    analysis/dram_mapping.py
-Purpose: Maps virtual byte addresses to DRAM (bank_id, row_id, col_offset)
-         tuples using a configurable interleaving scheme.
+RowScope — DRAM 주소 매핑 모델
+================================
+프로젝트: RowScope — DRAM Row Buffer Locality Analyzer
+파일:    analysis/dram_mapping.py
+목적: 가상 바이트 주소를 DRAM (bank_id, row_id, col_offset) 튜플로 매핑한다.
+     인터리빙 방식은 설정 가능하다.
 
-Two schemes are supported (architecture.md §3):
+지원하는 두 가지 방식 (architecture.md §3):
 
-  "sequential" (default):
+  "sequential" (기본값):
       col_offset = addr & (ROW_SIZE - 1)               # bits [R-1:0]
       bank_id    = (addr >> R) & (NUM_BANKS - 1)        # bits [R+B-1:R]
       row_id     = addr >> (R + B)                      # bits [31:R+B]
-      where R = log2(ROW_SIZE), B = log2(NUM_BANKS)
+      여기서 R = log2(ROW_SIZE), B = log2(NUM_BANKS)
 
-  "bitwise" (XOR-based):
+  "bitwise" (XOR 기반):
       col_offset = addr & (ROW_SIZE - 1)
       raw_bank   = (addr >> R) & (NUM_BANKS - 1)
       xor_bits   = (addr >> (R + B)) & (NUM_BANKS - 1)
       bank_id    = raw_bank ^ xor_bits
       row_id     = addr >> (R + B)
 
-Default parameters (architecture.md §3.2):
+기본 파라미터 (architecture.md §3.2):
     row_size  = 8192  (8 KB)
     num_banks = 16
     scheme    = "sequential"
 
-Author:  [Implementation Engineer]
-Date:    2026-03-11
+작성자:  [Implementation Engineer]
+날짜:    2026-03-11
 """
 
 from __future__ import annotations
@@ -38,13 +38,12 @@ from typing import Tuple
 
 class DRAMMapper:
     """
-    Maps byte addresses to DRAM (bank_id, row_id, col_offset) tuples.
+    바이트 주소를 DRAM (bank_id, row_id, col_offset) 튜플로 매핑한다.
 
-    See architecture.md §3 for the full specification of both mapping schemes
-    and worked examples.
+    두 가지 매핑 방식과 동작 예시는 architecture.md §3을 참고한다.
     """
 
-    DEFAULT_ROW_SIZE  = 8192   # 8 KB — one DRAM row
+    DEFAULT_ROW_SIZE  = 8192   # 8 KB — DRAM 행 하나
     DEFAULT_NUM_BANKS = 16
     DEFAULT_SCHEME    = "sequential"
 
@@ -57,16 +56,16 @@ class DRAMMapper:
         scheme:    str = DEFAULT_SCHEME,
     ) -> None:
         """
-        Initialize DRAMMapper.
+        DRAMMapper를 초기화한다.
 
         Args:
-            row_size:  Row buffer size in bytes.  Must be a power of 2.
-            num_banks: Number of DRAM banks.  Must be a power of 2.
-            scheme:    "sequential" or "bitwise".
+            row_size:  Row buffer 크기 (바이트). 반드시 2의 거듭제곱이어야 한다.
+            num_banks: DRAM 뱅크 수. 반드시 2의 거듭제곱이어야 한다.
+            scheme:    "sequential" 또는 "bitwise".
 
         Raises:
-            ValueError: If row_size or num_banks is not a power of 2,
-                        or if scheme is not recognized.
+            ValueError: row_size 또는 num_banks가 2의 거듭제곱이 아닌 경우,
+                        또는 scheme이 유효하지 않은 경우.
         """
         if row_size <= 0 or (row_size & (row_size - 1)) != 0:
             raise ValueError(
@@ -85,30 +84,30 @@ class DRAMMapper:
         self._num_banks = num_banks
         self._scheme    = scheme
 
-        # Precompute shift amounts and masks for hot-path efficiency
-        self._R         = int(math.log2(row_size))   # col_bits
-        self._B         = int(math.log2(num_banks))  # bank_bits
+        # 핫 패스(hot path) 효율을 위해 시프트 양과 마스크를 미리 계산
+        self._R         = int(math.log2(row_size))   # 열 비트 수
+        self._B         = int(math.log2(num_banks))  # 뱅크 비트 수
         self._col_mask  = row_size - 1
         self._bank_mask = num_banks - 1
 
     # ------------------------------------------------------------------
-    # Core mapping method
+    # 핵심 매핑 메서드
     # ------------------------------------------------------------------
 
     def map(self, address: int) -> Tuple[int, int, int]:
         """
-        Map a byte address to DRAM coordinates.
+        바이트 주소를 DRAM 좌표로 매핑한다.
 
         Args:
-            address: Byte address (non-negative integer).
+            address: 바이트 주소 (0 이상의 정수).
 
         Returns:
-            (bank_id, row_id, col_offset) tuple.
+            (bank_id, row_id, col_offset) 튜플.
 
         Raises:
-            ValueError: If address is negative.
+            ValueError: address가 음수인 경우.
 
-        Example (sequential scheme, row_size=8192, num_banks=16):
+        예시 (sequential 방식, row_size=8192, num_banks=16):
             mapper.map(270336)  -> (1, 2, 0)
             mapper.map(65536)   -> (8, 0, 0)
             mapper.map(0)       -> (0, 0, 0)
@@ -122,7 +121,7 @@ class DRAMMapper:
             bank_id = (address >> self._R) & self._bank_mask
             row_id  = address >> (self._R + self._B)
         else:
-            # "bitwise" XOR-based scheme
+            # "bitwise" XOR 기반 방식
             raw_bank = (address >> self._R) & self._bank_mask
             xor_bits = (address >> (self._R + self._B)) & self._bank_mask
             bank_id  = raw_bank ^ xor_bits
@@ -131,34 +130,34 @@ class DRAMMapper:
         return (bank_id, row_id, col_offset)
 
     # ------------------------------------------------------------------
-    # Accessors
+    # 접근자 (Accessors)
     # ------------------------------------------------------------------
 
     def get_row_size(self) -> int:
-        """Return configured row size in bytes."""
+        """설정된 row 크기를 바이트로 반환한다."""
         return self._row_size
 
     def get_num_banks(self) -> int:
-        """Return configured number of banks."""
+        """설정된 뱅크 수를 반환한다."""
         return self._num_banks
 
     def get_scheme(self) -> str:
-        """Return configured interleaving scheme name."""
+        """설정된 인터리빙 방식 이름을 반환한다."""
         return self._scheme
 
     # ------------------------------------------------------------------
-    # Introspection helpers
+    # 정보 조회 헬퍼
     # ------------------------------------------------------------------
 
     def describe_address(self, address: int) -> str:
         """
-        Return a human-readable breakdown of how an address is mapped.
+        주소가 어떻게 매핑되는지 사람이 읽기 쉬운 분석 결과를 반환한다.
 
         Args:
-            address: Byte address (non-negative integer).
+            address: 바이트 주소 (0 이상의 정수).
 
         Returns:
-            Multi-line string describing the bit decomposition.
+            비트 분해 과정을 설명하는 여러 줄의 문자열.
         """
         bank_id, row_id, col_offset = self.map(address)
         lines = [
@@ -180,18 +179,18 @@ class DRAMMapper:
 
 
 # ---------------------------------------------------------------------------
-# Self-test / demo block
+# 셀프 테스트 / 데모 블록
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     print("=== DRAMMapper Demo ===\n")
 
-    # Default mapper: row_size=8192, num_banks=16, scheme="sequential"
+    # 기본 매퍼: row_size=8192, num_banks=16, scheme="sequential"
     mapper = DRAMMapper()
     print(repr(mapper))
     print()
 
-    # Worked examples from architecture.md §3
+    # architecture.md §3의 동작 예시
     test_cases = [
         (0,       (0,  0, 0), "addr=0 -> bank=0, row=0, col=0"),
         (8192,    (1,  0, 0), "addr=8192 (1 row) -> bank=1, row=0, col=0"),
@@ -214,11 +213,11 @@ if __name__ == "__main__":
     print()
     print(f"All tests passed: {all_passed}")
 
-    # Demonstrate describe_address
+    # describe_address 동작 확인
     print()
     print(mapper.describe_address(270336))
 
-    # XOR scheme demo
+    # XOR 방식 데모
     print()
     xor_mapper = DRAMMapper(scheme="bitwise")
     print(f"\n{repr(xor_mapper)}")
@@ -226,7 +225,7 @@ if __name__ == "__main__":
     print(f"  map(8192)   = {xor_mapper.map(8192)}")
     print(f"  map(131072) = {xor_mapper.map(131072)}")
 
-    # Task spec verification: row_size=8192, num_banks=8
+    # 태스크 명세 검증: row_size=8192, num_banks=8
     print("\n=== Task spec verification (row_size=8192, num_banks=8) ===")
     m8 = DRAMMapper(row_size=8192, num_banks=8)
     cases8 = [

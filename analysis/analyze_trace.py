@@ -1,17 +1,17 @@
 """
-RowScope — Trace File Analyzer
+RowScope — 트레이스 파일 분석기
 ================================
-Project: RowScope — DRAM Row Buffer Locality Analyzer
-File:    analysis/analyze_trace.py
-Purpose: Parse .trace files produced by C benchmarks, run each address through
-         DRAMMapper + RowBufferModel, and produce per-trace and per-access
-         result data matching the schemas in architecture.md §6.
+프로젝트: RowScope — DRAM Row Buffer Locality Analyzer
+파일:    analysis/analyze_trace.py
+목적: C 벤치마크가 생성한 .trace 파일을 파싱하고, 각 주소를
+     DRAMMapper + RowBufferModel에 통과시켜 트레이스별 및 접근별
+     결과 데이터를 생성한다 (architecture.md §6 스키마 준수).
 
-Trace file format (architecture.md §5.1):
-  Line 1:  # benchmark=X size=Y stride=Z accesses=N element_size=4 seed=S iterations=I
-  Line 2+: one decimal virtual address per line
+트레이스 파일 형식 (architecture.md §5.1):
+  1행:  # benchmark=X size=Y stride=Z accesses=N element_size=4 seed=S iterations=I
+  2행~: 십진수 가상 주소 (한 줄에 하나)
 
-CLI usage:
+CLI 사용법:
     python -m analysis.analyze_trace \\
         --trace-dir traces/ \\
         --output results/processed/summary.csv \\
@@ -19,14 +19,14 @@ CLI usage:
         [--row-size 8192] [--num-banks 16] [--scheme sequential] \\
         [--verbose]
 
-Exit codes (architecture.md §7.3):
-    0: success
-    1: configuration error
-    2: trace file error
-    3: output error
+종료 코드 (architecture.md §7.3):
+    0: 성공
+    1: 설정 오류
+    2: 트레이스 파일 오류
+    3: 출력 오류
 
-Author:  [Implementation Engineer]
-Date:    2026-03-11
+작성자:  [Implementation Engineer]
+날짜:    2026-03-11
 """
 
 from __future__ import annotations
@@ -40,22 +40,21 @@ from typing import Optional
 
 def parse_trace_header(trace_path: str) -> dict:
     """
-    Parse the metadata header line of a trace file.
+    트레이스 파일의 메타데이터 헤더 줄을 파싱한다.
 
-    The header is expected to be line 1, starting with '#', followed by
-    space-separated key=value pairs.
+    헤더는 1행이어야 하며 '#'으로 시작하고, 공백으로 구분된 key=value 쌍이 뒤따른다.
 
     Args:
-        trace_path: Path to .trace file.
+        trace_path: .trace 파일 경로.
 
     Returns:
-        Dict of metadata key-value pairs.  All values are strings.
+        메타데이터 key-value 쌍의 dict. 모든 값은 문자열.
 
     Raises:
-        FileNotFoundError: If trace_path does not exist.
-        ValueError: If the header line is missing or malformed.
+        FileNotFoundError: trace_path가 존재하지 않는 경우.
+        ValueError: 헤더 줄이 없거나 형식이 잘못된 경우.
 
-    Example:
+    예시:
         parse_trace_header("traces/sequential_16MB_stride1.trace")
         -> {
                "benchmark": "sequential", "size": "16777216",
@@ -77,7 +76,7 @@ def parse_trace_header(trace_path: str) -> dict:
         )
 
     metadata: dict = {}
-    # Strip leading '#' and split on whitespace to get key=value tokens
+    # 선두의 '#'을 제거하고 공백으로 분리하여 key=value 토큰을 추출
     for token in first_line[1:].split():
         if "=" in token:
             key, _, value = token.partition("=")
@@ -92,24 +91,23 @@ def analyze_trace_file(
     per_access_output: Optional[str] = None,
 ) -> dict:
     """
-    Analyze a single trace file.
+    단일 트레이스 파일을 분석한다.
 
-    Reads all addresses from the trace, feeds them through mapper and a fresh
-    RowBufferModel instance, and returns a summary dict conforming to the
-    summary.csv schema (architecture.md §6.1).
+    트레이스의 모든 주소를 읽어 mapper와 새로운 RowBufferModel 인스턴스에 통과시키고,
+    summary.csv 스키마에 맞는 요약 dict를 반환한다 (architecture.md §6.1).
 
     Args:
-        trace_path:         Path to .trace file.
-        mapper:             Configured DRAMMapper instance.
-        per_access_output:  If not None, path to write per-access annotated CSV
-                            (architecture.md §6.2 schema).
+        trace_path:         .trace 파일 경로.
+        mapper:             설정된 DRAMMapper 인스턴스.
+        per_access_output:  None이 아니면, 접근별 어노테이션 CSV를 기록할 경로
+                            (architecture.md §6.2 스키마).
 
     Returns:
-        Dict with all columns from summary.csv schema, plus "trace_file".
+        summary.csv 스키마의 모든 컬럼과 "trace_file"을 포함하는 dict.
 
     Raises:
-        FileNotFoundError: If trace_path does not exist.
-        ValueError: If the file contains non-numeric lines (other than header).
+        FileNotFoundError: trace_path가 존재하지 않는 경우.
+        ValueError: 파일에 숫자가 아닌 줄이 있는 경우 (헤더 제외).
     """
     try:
         from analysis.row_buffer_model import RowBufferModel
@@ -120,7 +118,7 @@ def analyze_trace_file(
 
     model = RowBufferModel(mapper)
 
-    # Open per-access output CSV if requested
+    # 요청된 경우 접근별 출력 CSV 열기
     per_access_fh  = None
     per_access_csv = None
     if per_access_output is not None:
@@ -139,7 +137,7 @@ def analyze_trace_file(
                 if not line:
                     continue
                 if line.startswith("#"):
-                    # Header or comment — skip
+                    # 헤더 또는 주석 줄 — 건너뜀
                     continue
 
                 try:
@@ -151,7 +149,7 @@ def analyze_trace_file(
                     )
 
                 if per_access_csv is not None:
-                    # Capture bank state before this access to record prev_row_id
+                    # prev_row_id 기록을 위해 이 접근 이전의 뱅크 상태를 캡처
                     bank_id_pre, row_id_pre, _ = mapper.map(address)
                     prev_row = model._open_row[bank_id_pre]
                     if prev_row == -1:
@@ -175,11 +173,11 @@ def analyze_trace_file(
 
     stats = model.get_stats()
 
-    # Extract metadata fields with sensible defaults
+    # 적절한 기본값을 사용해 메타데이터 필드 추출
     benchmark      = metadata.get("benchmark", "unknown")
     array_size_bytes = int(metadata.get("size", 0))
     stride_elem    = int(metadata.get("stride", 1))
-    # stride_bytes: stride in elements * element_size (default element_size=4 bytes)
+    # stride_bytes: 요소 단위 stride × element_size (기본 element_size=4바이트)
     element_size   = int(metadata.get("element_size", 4))
     stride_bytes   = stride_elem * element_size
     declared_accesses = int(metadata.get("accesses", access_seq))
@@ -203,7 +201,7 @@ def analyze_trace_file(
         "unique_rows_accessed": stats["unique_rows"],
         "unique_banks_accessed": stats["unique_banks"],
         "trace_file":           str(trace_path),
-        # bonus fields for diagnostics
+        # 진단용 추가 필드
         "seed":                 seed,
         "iterations":           iterations,
         "element_size":         element_size,
@@ -218,20 +216,20 @@ def batch_analyze(
     verbose: bool = False,
 ) -> "pd.DataFrame":  # noqa: F821  (pandas imported lazily)
     """
-    Analyze all .trace files in a directory.
+    디렉터리 내 모든 .trace 파일을 분석한다.
 
     Args:
-        trace_dir:       Directory containing .trace files.
-        mapper:          Configured DRAMMapper instance.
-        per_access_dir:  If not None, directory to write per-access CSVs.
-        verbose:         Print progress for each trace file.
+        trace_dir:       .trace 파일이 있는 디렉터리.
+        mapper:          설정된 DRAMMapper 인스턴스.
+        per_access_dir:  None이 아니면, 접근별 CSV를 기록할 디렉터리.
+        verbose:         각 트레이스 파일 처리 시 진행 상황을 출력.
 
     Returns:
-        pandas DataFrame with one row per trace file, columns matching
-        summary.csv schema (architecture.md §6.1).
+        트레이스 파일 한 개당 한 행을 갖는 pandas DataFrame.
+        컬럼은 summary.csv 스키마 (architecture.md §6.1)와 일치.
 
     Raises:
-        FileNotFoundError: If trace_dir does not exist.
+        FileNotFoundError: trace_dir이 존재하지 않는 경우.
     """
     try:
         import pandas as pd
@@ -279,7 +277,7 @@ def batch_analyze(
 
 
 # ---------------------------------------------------------------------------
-# CLI entry point
+# CLI 진입점
 # ---------------------------------------------------------------------------
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -374,7 +372,7 @@ if __name__ == "__main__":
 
     print(f"Wrote {len(df)} rows to {args.output}")
 
-    # Print a concise summary table to stdout
+    # 간결한 요약 테이블을 stdout에 출력
     display_cols = [
         c for c in [
             "benchmark", "array_size_mb", "stride", "num_accesses",

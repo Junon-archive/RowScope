@@ -1,21 +1,21 @@
 """
-RowScope — Row Buffer State Machine Model
-==========================================
-Project: RowScope — DRAM Row Buffer Locality Analyzer
-File:    analysis/row_buffer_model.py
-Purpose: Per-bank row buffer state machine simulation.
-         Classifies each memory access as 'hit', 'miss', or 'conflict'
-         per the state machine defined in architecture.md §4.
+RowScope — Row Buffer 상태 머신 모델
+======================================
+프로젝트: RowScope — DRAM Row Buffer Locality Analyzer
+파일:    analysis/row_buffer_model.py
+목적: 뱅크별 row buffer 상태 머신 시뮬레이션.
+     각 메모리 접근을 'hit', 'miss', 'conflict' 중 하나로 분류한다.
+     상태 머신 정의는 architecture.md §4 참고.
 
-State machine per bank (architecture.md §4.1 / §4.2):
-  States:  EMPTY | OPEN(row_id)
+뱅크별 상태 머신 (architecture.md §4.1 / §4.2):
+  상태:  EMPTY | OPEN(row_id)
   T1: EMPTY       + access(bank=b, row=r)  -> OPEN(r)     [miss]
   T2: OPEN(r)     + access(bank=b, row=r)  -> OPEN(r)     [hit]
   T3: OPEN(r)     + access(bank=b, row=r') -> OPEN(r')    [conflict]
-  (accesses to a different bank do not affect this bank's state)
+  (다른 뱅크에 대한 접근은 현재 뱅크의 상태에 영향을 주지 않음)
 
-Author:  [Implementation Engineer]
-Date:    2026-03-11
+작성자:  [Implementation Engineer]
+날짜:    2026-03-11
 """
 
 from __future__ import annotations
@@ -25,18 +25,18 @@ from typing import TYPE_CHECKING, List
 if TYPE_CHECKING:
     from .dram_mapping import DRAMMapper
 
-# Sentinel value: bank row buffer is empty (no open row)
+# 센티넬 값: 뱅크의 row buffer가 비어있음 (열린 행 없음)
 _EMPTY = -1
 
 
 class RowBufferModel:
     """
-    Simulates per-bank row buffer state machines.
+    뱅크별 row buffer 상태 머신을 시뮬레이션한다.
 
-    Each bank independently tracks which row (if any) is currently open.
-    All banks start in the EMPTY state.
+    각 뱅크는 독립적으로 현재 열려있는 행(open row)을 추적한다.
+    모든 뱅크는 EMPTY 상태로 시작한다.
 
-    Usage:
+    사용법:
         mapper = DRAMMapper()
         model  = RowBufferModel(mapper)
         event  = model.process_access(address)   # -> "hit" | "miss" | "conflict"
@@ -45,26 +45,26 @@ class RowBufferModel:
 
     def __init__(self, mapper: "DRAMMapper") -> None:
         """
-        Initialize RowBufferModel with a DRAMMapper.
+        DRAMMapper를 사용해 RowBufferModel을 초기화한다.
 
         Args:
-            mapper: A configured DRAMMapper instance.
+            mapper: 설정된 DRAMMapper 인스턴스.
 
-        Creates NUM_BANKS independent state machines, all in EMPTY state.
+        NUM_BANKS개의 독립적인 상태 머신을 생성하며, 모두 EMPTY 상태로 시작한다.
         """
         self._mapper    = mapper
         self._num_banks = mapper.get_num_banks()
 
-        # Per-bank open row: _EMPTY means the bank is in the EMPTY state.
+        # 뱅크별 열린 행: _EMPTY는 해당 뱅크가 EMPTY 상태임을 의미
         self._open_row: List[int] = [_EMPTY] * self._num_banks
 
-        # Global counters
+        # 전역 카운터
         self._hits      = 0
         self._misses    = 0
         self._conflicts = 0
 
-        # Per-bank statistics; each entry is a dict with:
-        #   total_accesses, hits, misses, conflicts, unique_rows (set of row_ids)
+        # 뱅크별 통계; 각 항목은 아래 키를 갖는 dict:
+        #   total_accesses, hits, misses, conflicts, unique_rows (row_id 집합)
         self._bank_stats = [
             {
                 "total_accesses": 0,
@@ -76,25 +76,25 @@ class RowBufferModel:
             for _ in range(self._num_banks)
         ]
 
-        # Set of bank_ids that have received at least one access
+        # 최소 한 번 이상 접근된 bank_id 집합
         self._unique_banks: set = set()
 
     # ------------------------------------------------------------------
-    # Core access processing
+    # 핵심 접근 처리
     # ------------------------------------------------------------------
 
     def process_access(self, address: int) -> str:
         """
-        Process a single memory access and update state machines.
+        단일 메모리 접근을 처리하고 상태 머신을 갱신한다.
 
         Args:
-            address: Byte address of the access.
+            address: 접근 대상 바이트 주소.
 
         Returns:
-            One of: "hit", "miss", "conflict"
+            "hit", "miss", "conflict" 중 하나.
 
         Raises:
-            ValueError: If address is negative.
+            ValueError: address가 음수인 경우.
         """
         bank_id, row_id, _col = self._mapper.map(address)
 
@@ -106,30 +106,30 @@ class RowBufferModel:
         current = self._open_row[bank_id]
 
         if current == _EMPTY:
-            # Transition T1: EMPTY -> OPEN(row_id)  [miss]
+            # 전이 T1: EMPTY -> OPEN(row_id)  [miss]
             self._open_row[bank_id] = row_id
             self._misses           += 1
             bs["misses"]           += 1
             return "miss"
         elif current == row_id:
-            # Transition T2: OPEN(row_id) -> OPEN(row_id)  [hit]
+            # 전이 T2: OPEN(row_id) -> OPEN(row_id)  [hit]
             self._hits   += 1
             bs["hits"]   += 1
             return "hit"
         else:
-            # Transition T3: OPEN(r) + access(r') -> OPEN(r')  [conflict]
+            # 전이 T3: OPEN(r) + access(r') -> OPEN(r')  [conflict]
             self._open_row[bank_id] = row_id
             self._conflicts        += 1
             bs["conflicts"]        += 1
             return "conflict"
 
     # ------------------------------------------------------------------
-    # Statistics
+    # 통계
     # ------------------------------------------------------------------
 
     def get_stats(self) -> dict:
         """
-        Return aggregate statistics across all banks.
+        전체 뱅크에 대한 집계 통계를 반환한다.
 
         Returns:
             {
@@ -137,12 +137,12 @@ class RowBufferModel:
                 "misses":          int,
                 "conflicts":       int,
                 "total":           int,   # hits + misses + conflicts
-                "hit_rate":        float, # hits / total (0 if total == 0)
+                "hit_rate":        float, # hits / total (total == 0이면 0)
                 "miss_rate":       float,
                 "conflict_rate":   float,
                 "locality_score":  float, # hit_rate - conflict_rate
-                "unique_rows":     int,   # distinct (bank_id, row_id) pairs seen
-                "unique_banks":    int,   # distinct bank_ids accessed
+                "unique_rows":     int,   # 접근된 고유 (bank_id, row_id) 쌍 수
+                "unique_banks":    int,   # 접근된 고유 bank_id 수
             }
         """
         total = self._hits + self._misses + self._conflicts
@@ -175,10 +175,10 @@ class RowBufferModel:
 
     def get_per_bank_stats(self) -> list:
         """
-        Return per-bank statistics.
+        뱅크별 통계를 반환한다.
 
         Returns:
-            List of dicts, one per bank (indexed by bank_id), each containing:
+            뱅크별 dict 리스트 (bank_id 순서), 각 dict는 아래를 포함:
             {
                 "bank_id":        int,
                 "total_accesses": int,
@@ -187,7 +187,7 @@ class RowBufferModel:
                 "conflicts":      int,
                 "hit_rate":       float,
                 "conflict_rate":  float,
-                "unique_rows":    int,   # distinct row_ids accessed in this bank
+                "unique_rows":    int,   # 이 뱅크에서 접근된 고유 row_id 수
             }
         """
         result = []
@@ -212,11 +212,11 @@ class RowBufferModel:
         return result
 
     # ------------------------------------------------------------------
-    # Reset
+    # 초기화
     # ------------------------------------------------------------------
 
     def reset(self) -> None:
-        """Reset all bank states to EMPTY and clear all counters."""
+        """모든 뱅크 상태를 EMPTY로 초기화하고 카운터를 모두 지운다."""
         self._open_row  = [_EMPTY] * self._num_banks
         self._hits      = 0
         self._misses    = 0
@@ -234,7 +234,7 @@ class RowBufferModel:
         self._unique_banks = set()
 
     # ------------------------------------------------------------------
-    # Introspection
+    # 정보 조회
     # ------------------------------------------------------------------
 
     def __repr__(self) -> str:
@@ -246,7 +246,7 @@ class RowBufferModel:
 
 
 # ---------------------------------------------------------------------------
-# Self-test / demo block
+# 셀프 테스트 / 데모 블록
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
@@ -259,8 +259,8 @@ if __name__ == "__main__":
     print(f"Mapper: {mapper}")
     print()
 
-    # Sequential access: every access within the same row -> all hits after first miss
-    # Row size = 8192 bytes.  Access bytes 0..8191 sequentially.
+    # 순차 접근: 동일 행 내 모든 접근 -> 첫 miss 이후 전부 hit
+    # Row 크기 = 8192바이트. 바이트 0..8191을 순서대로 접근.
     print("--- Sequential access within one row (expect 1 miss + 8191 hits) ---")
     for i in range(8192):
         event = model.process_access(i)
@@ -273,11 +273,10 @@ if __name__ == "__main__":
 
     model.reset()
 
-    # Access every 8192 bytes -> every access goes to a new row -> all misses then conflicts
+    # 8192바이트마다 접근 -> 매번 새로운 행으로 이동 -> 처음엔 miss, 이후 conflict
     print("\n--- Row-strided access (stride = row_size, 16 rows) ---")
-    # Access row 0 of bank 0, then row 0 of bank 1, ... then row 1 of bank 0, etc.
-    # With 8 banks, accessing 0, 8192, 16384, ... the first 8 are misses,
-    # then the next 8 are conflicts (same banks, different rows).
+    # 뱅크0의 행0, 뱅크1의 행0, ... 순서로 접근. 8뱅크 기준으로
+    # 처음 8번은 miss (각 뱅크의 첫 접근), 다음 8번은 conflict (같은 뱅크, 다른 행).
     for i in range(16):
         addr  = i * 8192
         event = model.process_access(addr)
@@ -291,7 +290,7 @@ if __name__ == "__main__":
 
     model.reset()
 
-    # Random-like accesses: repeat the same address many times -> pure hits after first miss
+    # 동일 주소 반복 접근: 첫 miss 이후 전부 hit
     print("\n--- Repeated access to one address ---")
     for _ in range(1000):
         model.process_access(12345)
